@@ -1,3 +1,4 @@
+
 /*
  *  Project     Arduino Arcade Light Gun
  *  @author     Edward Webber
@@ -8,20 +9,25 @@
 #include <Mouse.h>
 #include <Keyboard.h>
 #include <Wire.h>
-#include <MPU6050_tockn.h>
+// #include <MPU6050.h>
+// #include <MPU6050_tockn.h>
+#include <MPU6050_light.h>
 #include <MD_REncoder.h>
 
 // -------- User Settings --------
 // Tuning Options
-const long encoderUpdateRate = 100;    // In milliseconds
-const long mpuUpdateRate     = 1000;   // In milliseconds
+// const long encoderUpdateRate = 5;    // In milliseconds
+const long mpuUpdateRate = 5;   // In milliseconds
+
+// multiplier converts gun movement into appropriate mouse movement
+int mpuMovementMultiplierX = 50, mpuMovementMultiplierY = 48;
 
 // Debug Flags (uncomment to dd)
 #define DEBUG   // Enable to use any prints
 #ifdef DEBUG
   #define DEBUG_BUTTONS
-  #define DEBUG_GYRO
-  #define DEBUG_ENCODER
+// #define DEBUG_GYRO
+// #define DEBUG_ENCODER
 #endif
 
 // Pin Definitions (do not change)
@@ -36,6 +42,7 @@ const uint8_t encoderCLKPin    = 5;
 long timestamp;
 long mpuLastUpdate;
 long encoderLastUpdate;
+char currentAdjustmentAxis = 'X';
 
 boolean activeTrigger = false;
 boolean activeAlt     = false;
@@ -59,15 +66,16 @@ boolean activeEncoder = false;
 // Instantiate Objects
 // encoder
 MD_REncoder encoder = MD_REncoder(encoderCLKPin, encoderDTPin);
+
 // MPU6050 gryo
 MPU6050 mpu = MPU6050(Wire);
 
 void setup() {
 #ifdef DEBUG
   Serial.begin(115200);
+#endif
   while (!Serial)
     ;   // Wait for connection
-#endif
 
   pinMode(buttonTriggerPin, INPUT_PULLUP);
   pinMode(buttonAltPin, INPUT_PULLUP);
@@ -82,7 +90,8 @@ void setup() {
   encoder.begin();
   Wire.begin();
   mpu.begin();
-  mpu.calcGyroOffsets(true);
+  // mpu.calcGyroOffsets(true);
+  mpu.calcOffsets();   // gyro and accelero
 }
 
 void loop() {
@@ -91,10 +100,10 @@ void loop() {
     mpuLastUpdate = timestamp;
     ProcessMPU();
   }
-  if (timestamp >= encoderLastUpdate + encoderUpdateRate) {
-    encoderLastUpdate = timestamp;
-    ProcessEncoder();
-  }
+  // if (timestamp >= encoderLastUpdate + encoderUpdateRate) {
+  // encoderLastUpdate = timestamp;
+  ProcessEncoder();
+  // }
 
   ProcessButtons();
 }
@@ -108,7 +117,9 @@ void ProcessButtons() {
   if (pressedTrigger) {
     if (!activeTrigger && activeEncoder) {
       // if encode and trigger buttons both pressed, calibrate gyro
-      mpu.calcGyroOffsets(true);
+      // mpu.calcGyroOffsets(true);
+      mpu.calcOffsets();   // gyro and accelero
+
     } else if (!activeTrigger) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing left mouse button");
@@ -143,16 +154,23 @@ void ProcessButtons() {
   if (pressedReload) {
     if (!activeReload) {
 #ifdef DEBUG_BUTTONS
-      DEBUG_PRINTLN("Pressing R");
+      DEBUG_PRINTLN("Switching axis");
+      // DEBUG_PRINTLN("Pressing R");
 #endif
-      Keyboard.press('r');
+      if (currentAdjustmentAxis == 'X') {
+        currentAdjustmentAxis = 'Y';
+      } else {
+        currentAdjustmentAxis = 'X';
+      }
+      // Keyboard.press('r');
       activeReload = true;
     }
   } else if (!pressedReload && activeReload) {
 #ifdef DEBUG_BUTTONS
-    DEBUG_PRINTLN("Releasing R");
+    DEBUG_PRINTLN("Switching axis");
+    // DEBUG_PRINTLN("Releasing R");
 #endif
-    Keyboard.release('r');
+    // Keyboard.release('r');
     activeReload = false;
   }
 
@@ -183,18 +201,38 @@ void ProcessEncoder() {
     DEBUG_PRINTLN("");
   #endif
 #endif
-    if (encoderPos == DIR_CW) {
-#ifdef DEBUG_ENCODER
-      DEBUG_PRINTLN("Pressing down arrow");
+    if (encoderPos == DIR_CCW) {
+#ifdef DEBUG
+      DEBUG_PRINT("Reducing ");
+      DEBUG_PRINT(currentAdjustmentAxis);
+      DEBUG_PRINT("-axis sensitivity to ");
+      DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
+      // DEBUG_PRINTLN("Scrolling down");
 #endif
-      Keyboard.press(KEY_DOWN_ARROW);
-      Keyboard.release(KEY_DOWN_ARROW);
+      if (currentAdjustmentAxis == 'X') {
+        mpuMovementMultiplierX -= 1;
+      } else {
+        mpuMovementMultiplierY -= 1;
+      }
+      // Mouse.move(0, 0, -1);
+      // Keyboard.press(KEY_DOWN_ARROW);
+      // Keyboard.release(KEY_DOWN_ARROW);
     } else if (encoderPos == DIR_CW) {
-#ifdef DEBUG_ENCODER
-      DEBUG_PRINTLN("Pressing up arrow");
+#ifdef DEBUG
+      DEBUG_PRINT("Increasing ");
+      DEBUG_PRINT(currentAdjustmentAxis);
+      DEBUG_PRINT("-axis sensitivity to ");
+      DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
+      // DEBUG_PRINTLN("Scrolling up");
 #endif
-      Keyboard.press(KEY_UP_ARROW);
-      Keyboard.release(KEY_UP_ARROW);
+      if (currentAdjustmentAxis == 'X') {
+        mpuMovementMultiplierX += 1;
+      } else {
+        mpuMovementMultiplierY += 1;
+      }
+      // Mouse.move(0, 0, 1);
+      // Keyboard.press(KEY_UP_ARROW);
+      // Keyboard.release(KEY_UP_ARROW);
     }
   }
 }
@@ -205,7 +243,7 @@ void ProcessMPU() {
   mpu.update();
   // fetch axis and convert to gun-specific axes
   mpuAngleX = -mpu.getAngleZ();   // horizontal axis
-  mpuAngleY = -mpu.getAngleX();   // vertical axis
+  mpuAngleY = mpu.getAngleX();    // vertical axis
   mpuAngleZ = -mpu.getAngleY();   // lean
 #ifdef DEBUG_GYRO
   DEBUG_PRINT("Gryo Hori:");
@@ -217,34 +255,32 @@ void ProcessMPU() {
 #endif
   bool mpuValidX = true, mpuValidY = true, mpuValidZ = true;
   // ignore if horizontal movement too shallow (small twitches) or too steep (no longer aiming at screen)
-  if (mpuAngleX < 2 && mpuAngleX > -2 || mpuAngleX > 80 || mpuAngleX < -80) {
-    // mpuAngleX = 0;
-    mpuValidX = false;
-  }
+  // if (mpuAngleX < .1 && mpuAngleX > -.1 /* || mpuAngleX > 60 || mpuAngleX < -60 */) {
+  // mpuAngleX = 0;
+  // mpuValidX = false;
+  // }
   // ignore if vertical movement too shallow (small twitches) or too steep (no longer aiming at screen)
-  if (mpuAngleY < 2 && mpuAngleY > -2 || mpuAngleY > 80 || mpuAngleY < -80) {
-    // mpuAngleY = 0;
-    mpuValidY = false;
-  }
+  // if (mpuAngleY < .1 && mpuAngleY > -.1 /* || mpuAngleY > 45 || mpuAngleY < -45 */) {
+  // mpuAngleY = 0;
+  // mpuValidY = false;
+  // }
   // ignore if lean angle too shallow or too steep
-  if (mpuAngleZ < 40 && mpuAngleZ > -40 || mpuAngleZ > 85 || mpuAngleZ < -85) {
+  if (mpuAngleZ < 40 && mpuAngleZ > -40 /* || mpuAngleZ > 85 || mpuAngleZ < -85 */) {
     // mpuAngleZ = 0;
     mpuValidZ = false;
   }
 
-  // multiplier converts gun movement into appropriate mouse movement
-  static int mpuMovementMultiplierX = 1, mpuMovementMultiplierY = 1;
   int mouseMoveX = 0;
   if (mpuValidX) {
-    mouseMoveX = (mpuAngleX - mpuLastAngleX) * mpuMovementMultiplierX;
+    if (!activeEncoder) mouseMoveX = (mpuAngleX - mpuLastAngleX) * mpuMovementMultiplierX;
+    mpuLastAngleX = mpuAngleX;
   }
   int mouseMoveY = 0;
   if (mpuValidY) {
-    mouseMoveY = (mpuAngleY - mpuLastAngleY) * mpuMovementMultiplierY;
+    if (!activeEncoder) mouseMoveY = (mpuAngleY - mpuLastAngleY) * mpuMovementMultiplierY;
+    mpuLastAngleY = mpuAngleY;
   }
-  mpuLastAngleX = mpuAngleX;
-  mpuLastAngleY = mpuAngleY;
-  // mpuLastAngleZ = mpuAngleZ;
+// mpuLastAngleZ = mpuAngleZ;
 #ifdef DEBUG_GYRO
   DEBUG_PRINT("Moving mouse X:");
   DEBUG_PRINT(mouseMoveX);
@@ -262,17 +298,17 @@ void ProcessMPU() {
   }
 #else
   if (mouseMoveX != 0 || mouseMoveY != 0) {
-    Mouse.move(mouseMoveX, mouseMoveZ, 0);
+    Mouse.move(mouseMoveX, mouseMoveY, 0);
   }
   if (mpuValidZ) {
     if (mpuAngleZ > 0) {
-      Keyboard.press(']');
+      Keyboard.press(KEY_PAGE_DOWN);
     } else {
-      Keyboard.press('[');
+      Keyboard.press(KEY_PAGE_UP);
     }
   } else {
-    Keyboard.release('[');
-    Keyboard.release(']');
+    Keyboard.release(KEY_PAGE_DOWN);
+    Keyboard.release(KEY_PAGE_UP);
   }
 #endif
 }
