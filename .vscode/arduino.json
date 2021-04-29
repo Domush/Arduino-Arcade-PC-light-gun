@@ -1,0 +1,7 @@
+{
+    "board": "arduino:avr:pro",
+    "configuration": "cpu=16MHzatmega328",
+    "sketch": "Arduino\\Arduino_arcade_light_gun.ino",
+    "port": "COM6",
+    "programmer": "AVR ISP"
+}

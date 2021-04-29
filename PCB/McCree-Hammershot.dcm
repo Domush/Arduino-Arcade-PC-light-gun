@@ -1,8 +1,0 @@
-EESchema-DOCLIB  Version 2.0
-#
-$CMP Arduino_Pro-Micro
-D Arduino Pro Micro
-K arduino, micro
-$ENDCMP
-#
-#End Doc Library

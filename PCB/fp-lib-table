@@ -1,3 +1,0 @@
-(fp_lib_table
-  (lib (name McCree-Hammershot)(type KiCad)(uri "$(KIPRJMOD)/McCree-Hammershot.pretty")(options "")(descr ""))
-)

@@ -1,0 +1,6 @@
+{
+  "files.exclude": {
+    "Arduino/McCree_Hammershot/McCree_Hammershot.ino": true,
+    "Arduino/McCree_Hammershot/MPU6050 example.ino": true
+  }
+}
