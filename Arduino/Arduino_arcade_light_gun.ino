@@ -28,9 +28,9 @@ const long mpuUpdateRate     = 1000;   // In milliseconds
 const uint8_t buttonTriggerPin = 14;
 const uint8_t buttonAltPin     = 16;
 const uint8_t buttonReloadPin  = 10;
-const uint8_t buttonEncoderPin = 5;
+const uint8_t buttonEncoderPin = 7;
 const uint8_t encoderDTPin     = 6;
-const uint8_t encoderCLKPin    = 7;
+const uint8_t encoderCLKPin    = 5;
 
 // Global Variables
 long timestamp;
@@ -203,32 +203,77 @@ void ProcessMPU() {
   static float mpuLastAngleX = 0, mpuLastAngleY = 0, mpuLastAngleZ = 0;
   static float mpuAngleX = 0, mpuAngleY = 0, mpuAngleZ = 0;
   mpu.update();
-  mpuAngleX = mpu.getAngleX();
-  mpuAngleY = mpu.getAngleY();
-  mpuAngleZ = mpu.getAngleZ();
+  // fetch axis and convert to gun-specific axes
+  mpuAngleX = -mpu.getAngleZ();   // horizontal axis
+  mpuAngleY = -mpu.getAngleX();   // vertical axis
+  mpuAngleZ = -mpu.getAngleY();   // lean
 #ifdef DEBUG_GYRO
-  DEBUG_PRINT("Gryo X:");
+  DEBUG_PRINT("Gryo Hori:");
   DEBUG_PRINT(mpuAngleX);
-  DEBUG_PRINT(" Y:");
+  DEBUG_PRINT(" Vert:");
   DEBUG_PRINT(mpuAngleY);
-  DEBUG_PRINT(" Z:");
+  DEBUG_PRINT(" Lean:");
   DEBUG_PRINTLN(mpuAngleZ);
 #endif
-  if (mpuAngleX < 2 && mpuAngleX > -2 || mpuAngleX > 50 || mpuAngleX < -50) {
-    mpuAngleX = 0;
+  bool mpuValidX = true, mpuValidY = true, mpuValidZ = true;
+  // ignore if horizontal movement too shallow (small twitches) or too steep (no longer aiming at screen)
+  if (mpuAngleX < 2 && mpuAngleX > -2 || mpuAngleX > 80 || mpuAngleX < -80) {
+    // mpuAngleX = 0;
+    mpuValidX = false;
   }
-  if (mpuAngleZ < 2 && mpuAngleZ > -2 || mpuAngleZ > 50 || mpuAngleZ < -50) {
-    mpuAngleZ = 0;
+  // ignore if vertical movement too shallow (small twitches) or too steep (no longer aiming at screen)
+  if (mpuAngleY < 2 && mpuAngleY > -2 || mpuAngleY > 80 || mpuAngleY < -80) {
+    // mpuAngleY = 0;
+    mpuValidY = false;
   }
-  int mouseMoveX = mpuAngleX * 3;
-  int mouseMoveZ = mpuAngleZ * 3;
+  // ignore if lean angle too shallow or too steep
+  if (mpuAngleZ < 40 && mpuAngleZ > -40 || mpuAngleZ > 85 || mpuAngleZ < -85) {
+    // mpuAngleZ = 0;
+    mpuValidZ = false;
+  }
+
+  // multiplier converts gun movement into appropriate mouse movement
+  static int mpuMovementMultiplierX = 1, mpuMovementMultiplierY = 1;
+  int mouseMoveX = 0;
+  if (mpuValidX) {
+    mouseMoveX = (mpuAngleX - mpuLastAngleX) * mpuMovementMultiplierX;
+  }
+  int mouseMoveY = 0;
+  if (mpuValidY) {
+    mouseMoveY = (mpuAngleY - mpuLastAngleY) * mpuMovementMultiplierY;
+  }
+  mpuLastAngleX = mpuAngleX;
+  mpuLastAngleY = mpuAngleY;
+  // mpuLastAngleZ = mpuAngleZ;
 #ifdef DEBUG_GYRO
   DEBUG_PRINT("Moving mouse X:");
   DEBUG_PRINT(mouseMoveX);
   DEBUG_PRINT(" and Y:");
-  DEBUG_PRINTLN(mouseMoveZ);
+  DEBUG_PRINT(mouseMoveY);
+  DEBUG_PRINT(" -- Leaning:");
+  if (mpuValidZ) {
+    if (mpuAngleZ > 0) {
+      DEBUG_PRINTLN("right");
+    } else {
+      DEBUG_PRINTLN("left");
+    }
+  } else {
+    DEBUG_PRINTLN("none");
+  }
 #else
-  Mouse.move(mouseMoveX, mouseMoveZ, 0);
+  if (mouseMoveX != 0 || mouseMoveY != 0) {
+    Mouse.move(mouseMoveX, mouseMoveZ, 0);
+  }
+  if (mpuValidZ) {
+    if (mpuAngleZ > 0) {
+      Keyboard.press(']');
+    } else {
+      Keyboard.press('[');
+    }
+  } else {
+    Keyboard.release('[');
+    Keyboard.release(']');
+  }
 #endif
 }
 
