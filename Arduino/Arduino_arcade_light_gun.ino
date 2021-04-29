@@ -215,10 +215,10 @@ void ProcessMPU() {
   DEBUG_PRINTLN(mpuAngleZ);
 #endif
   if (mpuAngleX < 2 && mpuAngleX > -2 || mpuAngleX > 50 || mpuAngleX < -50) {
-    mpuAngleX == 0;
+    mpuAngleX = 0;
   }
   if (mpuAngleZ < 2 && mpuAngleZ > -2 || mpuAngleZ > 50 || mpuAngleZ < -50) {
-    mpuAngleZ == 0;
+    mpuAngleZ = 0;
   }
   int mouseMoveX = mpuAngleX * 3;
   int mouseMoveZ = mpuAngleZ * 3;
