@@ -22,13 +22,13 @@ const long mpuUpdateRate = 5;   // In milliseconds
 // multiplier converts gun movement into appropriate mouse movement
 int mpuMovementMultiplierX = 50, mpuMovementMultiplierY = 48;
 
-// Debug Flags (uncomment to dd)
-#define DEBUG   // Enable to use any prints
+// Debug Flags (uncomment to display comments via serial connection)
+#define DEBUG   // Enabling will wait for serial connection before activating
 #ifdef DEBUG
-  #define DEBUG_BUTTONS
-  // #define DEBUG_GYRO
-  // #define DEBUG_ENCODER
-  #define DEBUG_JOYSTICK
+  #define DEBUG_BUTTONS   // Show button presses (and what they do)
+  // #define DEBUG_GYRO // Show mouse movements (very spammy, use with caution)
+  #define DEBUG_ENCODER    // Show encoder movements
+  #define DEBUG_JOYSTICK   // Show joystick movements
 #endif
 
 // Pin Definitions (do not change)
@@ -73,11 +73,8 @@ boolean activeJoystickYminus = false;
 #endif
 
 // Instantiate Objects
-// encoder
-MD_REncoder encoder = MD_REncoder(encoderCLKPin, encoderDTPin);
-
-// MPU6050 gryo
-MPU6050 mpu = MPU6050(Wire);
+MD_REncoder encoder = MD_REncoder(encoderCLKPin, encoderDTPin);   // Encoder
+MPU6050 mpu         = MPU6050(Wire);                              // MPU6050 gryo
 
 void setup() {
 #ifdef DEBUG
@@ -95,7 +92,7 @@ void setup() {
   pinMode(joystickYPin, INPUT);
 
   if (digitalRead(buttonTriggerPin) == 0) {
-    failsafe();   // Just in-case something goes wrong
+    failsafe();   // In case something goes wrong, stop everything and display serial message
   }
   Mouse.begin();
   Keyboard.begin();
@@ -103,7 +100,7 @@ void setup() {
   Wire.begin();
   mpu.begin();
   // mpu.calcGyroOffsets(true);
-  mpu.calcOffsets();   // gyro and accelero
+  mpu.calcOffsets();   // Calibrate gyro and accelerometer
 }
 
 void loop() {
@@ -117,6 +114,7 @@ void loop() {
   ProcessButtons();
 }
 
+// Handle button presses from all sources
 void ProcessButtons() {
   boolean pressedTrigger  = !digitalRead(buttonTriggerPin);
   boolean pressedAlt      = !digitalRead(buttonAltPin);
@@ -125,12 +123,7 @@ void ProcessButtons() {
   boolean pressedEncoder  = !digitalRead(buttonEncoderPin);
 
   if (pressedTrigger) {
-    if (!activeTrigger && activeEncoder) {
-      // if encode and trigger buttons both pressed, calibrate gyro
-      // mpu.calcGyroOffsets(true);
-      mpu.calcOffsets();   // gyro and accelero
-
-    } else if (!activeTrigger) {
+    if (!activeTrigger) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing left mouse button");
 #endif
@@ -145,8 +138,33 @@ void ProcessButtons() {
     activeTrigger = false;
   }
 
+  if (pressedEncoder) {
+    if (!activeEncoder) {
+#ifdef DEBUG_BUTTONS
+      DEBUG_PRINTLN("Encoder button pressed (Hold for aim adjust)");
+#endif
+      activeEncoder = true;
+    }
+  } else if (!pressedEncoder && activeEncoder) {
+#ifdef DEBUG_BUTTONS
+    DEBUG_PRINT("Encoder button released");
+    DEBUG_PRINT(" - Switching sensitivity adjustment to ");
+    DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? "Y axis" : "X axis");
+#endif
+    if (currentAdjustmentAxis == 'X') {
+      currentAdjustmentAxis = 'Y';
+    } else {
+      currentAdjustmentAxis = 'X';
+    }
+    activeEncoder = false;
+  }
+
   if (pressedAlt) {
-    if (!activeAlt) {
+    if (!activeAlt && activeEncoder) {
+      // If *both* the encode and alt buttons are pressed simultaneously, re-calibrate the gyro
+      // mpu.calcGyroOffsets(true);
+      mpu.calcOffsets();   // gyro and accelerometer calibration
+    } else if (!activeAlt) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing middle mouse button");
 #endif
@@ -192,29 +210,9 @@ void ProcessButtons() {
     Mouse.release(MOUSE_RIGHT);
     activeJoystick = false;
   }
-
-  if (pressedEncoder) {
-    if (!activeEncoder) {
-#ifdef DEBUG_BUTTONS
-      DEBUG_PRINTLN("Encoder button pressed (Hold for aim adjust)");
-#endif
-      activeEncoder = true;
-    }
-  } else if (!pressedEncoder && activeEncoder) {
-#ifdef DEBUG_BUTTONS
-    DEBUG_PRINT("Encoder button released");
-    DEBUG_PRINT(" - Switching sensitivity adjustment to ");
-    DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? "Y axis" : "X axis");
-#endif
-    if (currentAdjustmentAxis == 'X') {
-      currentAdjustmentAxis = 'Y';
-    } else {
-      currentAdjustmentAxis = 'X';
-    }
-    activeEncoder = false;
-  }
 }
 
+// Handle joystick movements
 void ProcessJoystick() {
   int joystickXValue = analogRead(joystickXPin);
   int joystickYValue = analogRead(joystickYPin);
@@ -284,6 +282,7 @@ void ProcessJoystick() {
   }
 }
 
+// Handle encoder turns
 void ProcessEncoder() {
   uint8_t encoderPos = encoder.read();
   if (encoderPos) {
@@ -319,6 +318,7 @@ void ProcessEncoder() {
   }
 }
 
+// Handle gyro movements (gun aiming)
 void ProcessMPU() {
   static float mpuLastAngleX = 0, mpuLastAngleY = 0, mpuLastAngleZ = 0;
   static float mpuAngleX = 0, mpuAngleY = 0, mpuAngleZ = 0;
@@ -395,6 +395,7 @@ void ProcessMPU() {
 #endif
 }
 
+// Abort message upon initialization failure
 void failsafe() {
   DEBUG_PRINTLN("Failsafe triggered. Code will not execute");
 }
