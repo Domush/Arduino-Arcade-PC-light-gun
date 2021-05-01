@@ -1,25 +1,19 @@
 
 /*
- *  Project     Arduino Arcade Light Gun
+ *  Project     Arduino Arcade PC Light Gun
  *  @author     Edward Webber
- *  @link       github.com/domush/arduino-arcade-light-gun
- *  @license    GPLv3 - Copyright (c) 2021 Edward Webber
+ *  @link       https://github.com/Domush/Arduino-Arcade-PC-light-gun
+ *  @license    GPLv3 non-commercial - Copyright (c) 2021 Edward Webber
  */
 
-#include <Mouse.h>
-#include <Keyboard.h>
-#include <Wire.h>
-// #include <MPU6050.h>
-// #include <MPU6050_tockn.h>
-#include <MPU6050_light.h>
-#include <MD_REncoder.h>
+// ===============
+// User Settings
+// ===============
 
-// -------- User Settings --------
 // Tuning Options
-// const long encoderUpdateRate = 5;    // In milliseconds
 const long mpuUpdateRate = 5;   // In milliseconds
 
-// multiplier converts gun movement into appropriate mouse movement
+// Multiplier converts gun movement into appropriate mouse movement
 int mpuMovementMultiplierX = 50, mpuMovementMultiplierY = 48;
 
 // Debug Flags (uncomment to display comments via serial connection)
@@ -31,7 +25,7 @@ int mpuMovementMultiplierX = 50, mpuMovementMultiplierY = 48;
   #define DEBUG_JOYSTICK   // Show joystick movements
 #endif
 
-// Pin Definitions (do not change)
+// Pin Definitions (change with care)
 const uint8_t buttonTriggerPin  = 14;
 const uint8_t buttonAltPin      = 16;
 const uint8_t buttonReloadPin   = 10;
@@ -41,6 +35,18 @@ const uint8_t buttonEncoderPin  = 7;
 const uint8_t joystickXPin      = A0;
 const uint8_t joystickYPin      = A1;
 const uint8_t buttonJoystickPin = 15;
+
+// ========================
+// DO NOT EDIT BELOW HERE
+// ========================
+
+#include <Mouse.h>
+#include <Keyboard.h>
+#include <Wire.h>
+// #include <MPU6050.h>
+// #include <MPU6050_tockn.h>
+#include <MPU6050_light.h>
+#include <MD_REncoder.h>
 
 // Global Variables
 long timestamp;
