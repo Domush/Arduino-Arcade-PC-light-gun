@@ -26,17 +26,21 @@ int mpuMovementMultiplierX = 50, mpuMovementMultiplierY = 48;
 #define DEBUG   // Enable to use any prints
 #ifdef DEBUG
   #define DEBUG_BUTTONS
-// #define DEBUG_GYRO
-// #define DEBUG_ENCODER
+  // #define DEBUG_GYRO
+  // #define DEBUG_ENCODER
+  #define DEBUG_JOYSTICK
 #endif
 
 // Pin Definitions (do not change)
-const uint8_t buttonTriggerPin = 14;
-const uint8_t buttonAltPin     = 16;
-const uint8_t buttonReloadPin  = 10;
-const uint8_t buttonEncoderPin = 7;
-const uint8_t encoderDTPin     = 6;
-const uint8_t encoderCLKPin    = 5;
+const uint8_t buttonTriggerPin  = 14;
+const uint8_t buttonAltPin      = 16;
+const uint8_t buttonReloadPin   = 10;
+const uint8_t encoderDTPin      = 6;
+const uint8_t encoderCLKPin     = 5;
+const uint8_t buttonEncoderPin  = 7;
+const uint8_t joystickXPin      = A0;
+const uint8_t joystickYPin      = A1;
+const uint8_t buttonJoystickPin = 15;
 
 // Global Variables
 long timestamp;
@@ -44,10 +48,15 @@ long mpuLastUpdate;
 long encoderLastUpdate;
 char currentAdjustmentAxis = 'X';
 
-boolean activeTrigger = false;
-boolean activeAlt     = false;
-boolean activeReload  = false;
-boolean activeEncoder = false;
+boolean activeTrigger        = false;
+boolean activeAlt            = false;
+boolean activeReload         = false;
+boolean activeEncoder        = false;
+boolean activeJoystick       = false;
+boolean activeJoystickXplus  = false;
+boolean activeJoystickXminus = false;
+boolean activeJoystickYplus  = false;
+boolean activeJoystickYminus = false;
 
 #ifdef DEBUG
   #define DEBUG_PRINT(x) \
@@ -73,14 +82,17 @@ MPU6050 mpu = MPU6050(Wire);
 void setup() {
 #ifdef DEBUG
   Serial.begin(115200);
-#endif
   while (!Serial)
     ;   // Wait for connection
+#endif
 
   pinMode(buttonTriggerPin, INPUT_PULLUP);
   pinMode(buttonAltPin, INPUT_PULLUP);
   pinMode(buttonReloadPin, INPUT_PULLUP);
   pinMode(buttonEncoderPin, INPUT_PULLUP);
+  pinMode(buttonJoystickPin, INPUT_PULLUP);
+  pinMode(joystickXPin, INPUT);
+  pinMode(joystickYPin, INPUT);
 
   if (digitalRead(buttonTriggerPin) == 0) {
     failsafe();   // Just in-case something goes wrong
@@ -100,19 +112,17 @@ void loop() {
     mpuLastUpdate = timestamp;
     ProcessMPU();
   }
-  // if (timestamp >= encoderLastUpdate + encoderUpdateRate) {
-  // encoderLastUpdate = timestamp;
   ProcessEncoder();
-  // }
-
+  ProcessJoystick();
   ProcessButtons();
 }
 
 void ProcessButtons() {
-  boolean pressedTrigger = !digitalRead(buttonTriggerPin);
-  boolean pressedAlt     = !digitalRead(buttonAltPin);
-  boolean pressedReload  = !digitalRead(buttonReloadPin);
-  boolean pressedEncoder = !digitalRead(buttonEncoderPin);
+  boolean pressedTrigger  = !digitalRead(buttonTriggerPin);
+  boolean pressedAlt      = !digitalRead(buttonAltPin);
+  boolean pressedReload   = !digitalRead(buttonReloadPin);
+  boolean pressedJoystick = !digitalRead(buttonJoystickPin);
+  boolean pressedEncoder  = !digitalRead(buttonEncoderPin);
 
   if (pressedTrigger) {
     if (!activeTrigger && activeEncoder) {
@@ -138,71 +148,147 @@ void ProcessButtons() {
   if (pressedAlt) {
     if (!activeAlt) {
 #ifdef DEBUG_BUTTONS
-      DEBUG_PRINTLN("Pressing right mouse button");
+      DEBUG_PRINTLN("Pressing middle mouse button");
 #endif
-      Mouse.press(MOUSE_RIGHT);
+      Mouse.press(MOUSE_MIDDLE);
       activeAlt = true;
     }
   } else if (!pressedAlt && activeAlt) {
 #ifdef DEBUG_BUTTONS
-    DEBUG_PRINTLN("Releasing right mouse button");
+    DEBUG_PRINTLN("Releasing middle mouse button");
 #endif
-    Mouse.release(MOUSE_RIGHT);
+    Mouse.release(MOUSE_MIDDLE);
     activeAlt = false;
   }
 
   if (pressedReload) {
     if (!activeReload) {
 #ifdef DEBUG_BUTTONS
-      DEBUG_PRINTLN("Switching axis");
-      // DEBUG_PRINTLN("Pressing R");
+      DEBUG_PRINTLN("Pressing R");
 #endif
-      if (currentAdjustmentAxis == 'X') {
-        currentAdjustmentAxis = 'Y';
-      } else {
-        currentAdjustmentAxis = 'X';
-      }
-      // Keyboard.press('r');
+      Keyboard.press('r');
       activeReload = true;
     }
   } else if (!pressedReload && activeReload) {
 #ifdef DEBUG_BUTTONS
-    DEBUG_PRINTLN("Switching axis");
-    // DEBUG_PRINTLN("Releasing R");
+    DEBUG_PRINTLN("Releasing R");
 #endif
-    // Keyboard.release('r');
+    Keyboard.release('r');
     activeReload = false;
+  }
+
+  if (pressedJoystick) {
+    if (!activeJoystick) {
+#ifdef DEBUG_BUTTONS
+      DEBUG_PRINTLN("Pressing right mouse button");
+#endif
+      Mouse.click(MOUSE_RIGHT);
+      activeJoystick = true;
+    }
+  } else if (!pressedJoystick && activeJoystick) {
+#ifdef DEBUG_BUTTONS
+    DEBUG_PRINTLN("Releasing right mouse button");
+#endif
+    Mouse.release(MOUSE_RIGHT);
+    activeJoystick = false;
   }
 
   if (pressedEncoder) {
     if (!activeEncoder) {
 #ifdef DEBUG_BUTTONS
-      DEBUG_PRINTLN("Encoder button pressed");
+      DEBUG_PRINTLN("Encoder button pressed (Hold for aim adjust)");
 #endif
       activeEncoder = true;
     }
   } else if (!pressedEncoder && activeEncoder) {
 #ifdef DEBUG_BUTTONS
-    DEBUG_PRINTLN("Encoder button released");
+    DEBUG_PRINT("Encoder button released");
+    DEBUG_PRINT(" - Switching sensitivity adjustment to ");
+    DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? "Y axis" : "X axis");
 #endif
+    if (currentAdjustmentAxis == 'X') {
+      currentAdjustmentAxis = 'Y';
+    } else {
+      currentAdjustmentAxis = 'X';
+    }
     activeEncoder = false;
+  }
+}
+
+void ProcessJoystick() {
+  int joystickXValue = analogRead(joystickXPin);
+  int joystickYValue = analogRead(joystickYPin);
+
+  // Process X values (strafing movement)
+  if (joystickXValue > 700) {
+    if (!activeJoystickXplus) {
+#ifdef DEBUG_JOYSTICK
+      DEBUG_PRINTLN("Moving right");
+#endif
+      Keyboard.press('D');
+      activeJoystickXplus  = true;
+      activeJoystickXminus = false;
+    }
+  } else if (joystickXValue < 300) {
+    if (!activeJoystickXminus) {
+#ifdef DEBUG_JOYSTICK
+      DEBUG_PRINTLN("Moving left");
+#endif
+      Keyboard.press('A');
+      activeJoystickXminus = true;
+      activeJoystickXplus  = false;
+    }
+  } else {
+    if (activeJoystickXminus || activeJoystickXplus) {
+#ifdef DEBUG_JOYSTICK
+      DEBUG_PRINTLN("Stopping X movement");
+#endif
+      Keyboard.release('D');
+      activeJoystickXplus = false;
+      Keyboard.release('A');
+      activeJoystickXminus = false;
+    }
+  }
+
+  // Process Y values (forward/reverse movement)
+  if (joystickYValue > 700) {
+    if (!activeJoystickYplus) {
+#ifdef DEBUG_JOYSTICK
+      DEBUG_PRINTLN("Moving forward");
+#endif
+      Keyboard.release('S');
+      activeJoystickYminus = false;
+      Keyboard.press('W');
+      activeJoystickYplus = true;
+    }
+  } else if (joystickXValue < 300) {
+    if (!activeJoystickYminus) {
+#ifdef DEBUG_JOYSTICK
+      DEBUG_PRINTLN("Moving backwards");
+#endif
+      Keyboard.release('W');
+      activeJoystickYplus = false;
+      Keyboard.press('S');
+      activeJoystickYminus = true;
+    }
+  } else {
+    if (activeJoystickYminus || activeJoystickYplus) {
+#ifdef DEBUG_JOYSTICK
+      DEBUG_PRINTLN("Stopping Y movement");
+#endif
+      Keyboard.release('W');
+      activeJoystickYplus = false;
+      Keyboard.release('S');
+      activeJoystickYminus = false;
+    }
   }
 }
 
 void ProcessEncoder() {
   uint8_t encoderPos = encoder.read();
   if (encoderPos) {
-#ifdef DEBUG_ENCODER
-    DEBUG_PRINT(encoderPos == DIR_CW ? "\n+1" : "\n-1");
-  #if ENABLE_SPEED
-    DEBUG_PRINT(" Rate: ");
-    DEBUG_PRINTLN(encoder.speed());
-  #else
-    DEBUG_PRINTLN("");
-  #endif
-#endif
     if (encoderPos == DIR_CCW) {
-#ifdef DEBUG
+#ifdef DEBUG_ENCODER
       DEBUG_PRINT("Reducing ");
       DEBUG_PRINT(currentAdjustmentAxis);
       DEBUG_PRINT("-axis sensitivity to ");
@@ -215,10 +301,8 @@ void ProcessEncoder() {
         mpuMovementMultiplierY -= 1;
       }
       // Mouse.move(0, 0, -1);
-      // Keyboard.press(KEY_DOWN_ARROW);
-      // Keyboard.release(KEY_DOWN_ARROW);
     } else if (encoderPos == DIR_CW) {
-#ifdef DEBUG
+#ifdef DEBUG_ENCODER
       DEBUG_PRINT("Increasing ");
       DEBUG_PRINT(currentAdjustmentAxis);
       DEBUG_PRINT("-axis sensitivity to ");
@@ -231,8 +315,6 @@ void ProcessEncoder() {
         mpuMovementMultiplierY += 1;
       }
       // Mouse.move(0, 0, 1);
-      // Keyboard.press(KEY_UP_ARROW);
-      // Keyboard.release(KEY_UP_ARROW);
     }
   }
 }
