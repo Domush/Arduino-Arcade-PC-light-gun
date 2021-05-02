@@ -443,7 +443,7 @@ void ProcessEncoder() {
 
 // Handle gyro movements (gun aiming)
 void ProcessMPU() {
-  static float mpuLastAngleX = 0, mpuLastAngleY = 0, mpuLastAngleZ = 0;
+  static float mpuLastAngleX = 0, mpuLastAngleY = 0 /*, mpuLastAngleZ = 0*/;
   static float mpuAngleX = 0, mpuAngleY = 0, mpuAngleZ = 0;
   mpu.update();
   // fetch axis and convert to gun-specific axes
