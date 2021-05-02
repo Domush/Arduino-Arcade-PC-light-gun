@@ -86,36 +86,41 @@ MD_REncoder encoder = MD_REncoder(encoderCLKPin, encoderDTPin);   // Encoder
 MPU6050 mpu         = MPU6050(Wire);                              // MPU6050 gryo
 // OakOLED oled;
 // Adafruit_SSD1306 oled;
-Adafruit_SSD1306 display(128, 64, &Wire, -1);
+#define SCREEN_WIDTH  128   // OLED display width, in pixels
+#define SCREEN_HEIGHT 64    // OLED display height, in pixels
 
-// SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-if (!display.begin(SSD1306_SWITCHCAPVCC, 0x78)) {   // Address 0x3C for 128x64
-  DEBUG_PRINTLN("SSD1306 initialization failed");
-  failsafe();
-}
+#define OLED_RESET     -1     // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x78   ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+// Adafruit_SSD1306 display(128, 64, &Wire, -1);
+#define LOGO_HEIGHT 16
+#define LOGO_WIDTH  16
+static const unsigned char PROGMEM logo_bmp[] =
+    {B00000000, B11000000,
+     B00000001, B11000000,
+     B00000001, B11000000,
+     B00000011, B11100000,
+     B11110011, B11100000,
+     B11111110, B11111000,
+     B01111110, B11111111,
+     B00110011, B10011111,
+     B00011111, B11111100,
+     B00001101, B01110000,
+     B00011011, B10100000,
+     B00111111, B11100000,
+     B00111111, B11110000,
+     B01111100, B11110000,
+     B01110000, B01110000,
+     B00000000, B00110000};
 
-void oledPrint(const char* displayString, bool displayClear = false, int displayTextSize = 1, float displayTextColor = 1) {
-  oled.setTextSize(displayTextSize);
-  oled.setTextColor(displayTextColor);
-  oled.setRotation(0);
+void displayConfig(bool displayClear = false, int displayTextSize = 1) {
+  display.setTextSize(displayTextSize);
+  display.setTextColor(1);
+  display.setRotation(0);
   if (displayClear) {
-    oled.clearDisplay();
-    oled.setCursor(0, 0);
+    display.clearDisplay();
+    display.setCursor(0, 0);
   }
-  oled.print(displayString);
-  oled.display();
-}
-
-void oledPrintln(const char* displayString, bool displayClear = false, int displayTextSize = 1, float displayTextColor = 1) {
-  oled.setTextSize(displayTextSize);
-  oled.setTextColor(displayTextColor);
-  oled.setRotation(0);
-  if (displayClear) {
-    oled.clearDisplay();
-    oled.setCursor(0, 0);
-  }
-  oled.println(displayString);
-  oled.display();
 }
 
 void setup() {
@@ -142,6 +147,11 @@ void setup() {
   encoder.begin();
   Wire.begin();
   mpu.begin();
+  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {   // Address 0x3C for 128x64
+    DEBUG_PRINTLN("SSD1306 initialization failed");
+    failsafe();
+  }
   // mpu.calcGyroOffsets(true);
   mpu.calcOffsets();   // Calibrate gyro and accelerometer
 }
@@ -170,7 +180,11 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing left mouse button");
 #endif
-      oledPrintln("BANG!", true, 3);
+      // Display what's happening
+      displayConfig(true, 3);
+      display.println("BANG!");
+      display.display();
+      //  End display
       Mouse.press();
       activeTrigger = true;
     }
@@ -187,7 +201,11 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Encoder button pressed (Hold for aim adjust)");
 #endif
-      oledPrintln("Adjusting aim", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Adjusting aim");
+      display.display();
+      //  End display
       activeEncoder = true;
     }
   } else if (!pressedEncoder && activeEncoder) {
@@ -201,7 +219,11 @@ void ProcessButtons() {
     } else {
       currentAdjustmentAxis = 'X';
     }
-    oledPrintln(currentAdjustmentAxis == 'X' ? "Adjusting X axis" : "Adjusting Y axis");
+    // Display what's happening
+    displayConfig();
+    display.println(currentAdjustmentAxis == 'X' ? "Adjusting X axis" : "Adjusting Y axis");
+    display.display();
+    //  End display
     activeEncoder = false;
   }
 
@@ -213,7 +235,11 @@ void ProcessButtons() {
     } else if (!activeAlt) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing middle mouse button");
-      oledPrintln("Middle click", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Middle click");
+      display.display();
+      //  End display
 #endif
       Mouse.press(MOUSE_MIDDLE);
       activeAlt = true;
@@ -231,7 +257,11 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing R");
 #endif
-      oledPrintln("Reloading", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Reloading");
+      display.display();
+      //  End display
       Keyboard.press('r');
       activeReload = true;
     }
@@ -247,7 +277,11 @@ void ProcessButtons() {
     if (!activeJoystick) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing right mouse button");
-      oledPrintln("Right click", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Right click");
+      display.display();
+      //  End display
 #endif
       Mouse.click(MOUSE_RIGHT);
       activeJoystick = true;
@@ -271,7 +305,11 @@ void ProcessJoystick() {
     if (!activeJoystickXplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving right");
-      oledPrintln("Moving right", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Moving right");
+      display.display();
+      //  End display
 #else
       Keyboard.release('A');
       Keyboard.press('D');
@@ -283,7 +321,11 @@ void ProcessJoystick() {
     if (!activeJoystickXminus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving left");
-      oledPrintln("Moving left", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Moving left");
+      display.display();
+      //  End display
 #else
       Keyboard.release('D');
       Keyboard.press('A');
@@ -309,7 +351,11 @@ void ProcessJoystick() {
     if (!activeJoystickYplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving forward");
-      oledPrintln("Moving forward", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Moving forward");
+      display.display();
+      //  End display
 #else
       Keyboard.release('S');
       Keyboard.press('W');
@@ -321,7 +367,11 @@ void ProcessJoystick() {
     if (!activeJoystickYminus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving backwards");
-      oledPrintln("Moving backwards", true, 2);
+      // Display what's happening
+      displayConfig(true, 2);
+      display.println("Moving backwards");
+      display.display();
+      //  End display
 #else
       Keyboard.release('W');
       Keyboard.press('S');
@@ -353,8 +403,12 @@ void ProcessEncoder() {
       DEBUG_PRINT(currentAdjustmentAxis);
       DEBUG_PRINT("-axis sensitivity to ");
       DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
-      oledPrint(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
-      oledPrintln(currentAdjustmentAxis == 'X' ? (char*)(mpuMovementMultiplierX - 1) : (char*)(mpuMovementMultiplierY - 1));
+      // Display what's happening
+      displayConfig();
+      display.print(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
+      display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
+      display.display();
+      //  End display
       // DEBUG_PRINTLN("Scrolling down");
 #endif
       if (currentAdjustmentAxis == 'X') {
@@ -369,8 +423,12 @@ void ProcessEncoder() {
       DEBUG_PRINT(currentAdjustmentAxis);
       DEBUG_PRINT("-axis sensitivity to ");
       DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
-      oledPrint(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
-      oledPrintln(currentAdjustmentAxis == 'X' ? (char*)(mpuMovementMultiplierX + 1) : (char*)(mpuMovementMultiplierY + 1));
+      // Display what's happening
+      displayConfig();
+      display.print(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
+      display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
+      display.display();
+      //  End display
       // DEBUG_PRINTLN("Scrolling up");
 #endif
       if (currentAdjustmentAxis == 'X') {
@@ -437,23 +495,27 @@ void ProcessMPU() {
     DEBUG_PRINT(" and Y:");
     DEBUG_PRINT(mouseMoveY);
     DEBUG_PRINT(" -- Leaning:");
-    oledPrint("Moving mouse X:");
-    oledPrint(mouseMoveX);
-    oledPrint(" and Y:");
-    oledPrintln(mouseMoveY);
-    oledPrint(" -- Leaning:");
+    // Display what's happening
+    displayConfig(true);
+    display.println("Moving mouse X:");
+    display.println(mouseMoveX);
+    display.println(" and Y:");
+    display.println(mouseMoveY);
+    display.println(" -- Leaning:");
+    //  End display
     if (mpuValidZ) {
       if (mpuAngleZ > 0) {
         DEBUG_PRINTLN("right");
-        oledPrintln("right");
+        display.println("right");
       } else {
         DEBUG_PRINTLN("left");
-        oledPrintln("left");
+        display.println("left");
       }
     } else {
       DEBUG_PRINTLN("none");
-      oledPrintln("none");
+      display.println("none");
     }
+    display.display();
     debugLastUpdate = timestamp;
   }
 #else
