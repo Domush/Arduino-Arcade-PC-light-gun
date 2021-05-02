@@ -1,6 +1,0 @@
-{
-    "board": "arduino:avr:micro",
-    "sketch": "Arduino\\Arduino_arcade_light_gun.ino",
-    "port": "COM8",
-    "programmer": "AVR ISP"
-}

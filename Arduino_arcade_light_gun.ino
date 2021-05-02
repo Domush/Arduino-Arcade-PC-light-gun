@@ -1,4 +1,3 @@
-
 /*
  *  Project     Arduino Arcade PC Light Gun
  *  @author     Edward Webber
@@ -39,19 +38,23 @@ const uint8_t buttonJoystickPin = 15;
 // ========================
 // DO NOT EDIT BELOW HERE
 // ========================
-
+#include <SPI.h>
+#include <Wire.h>
 #include <Mouse.h>
 #include <Keyboard.h>
-#include <Wire.h>
-// #include <MPU6050.h>
-// #include <MPU6050_tockn.h>
+#include <Adafruit_GFX.h>
 #include <MPU6050_light.h>
 #include <MD_REncoder.h>
+// #include <MPU6050.h>
+// #include <MPU6050_tockn.h>
+#include <Adafruit_SSD1306.h>
+#include <splash.h>
+// #include <OakOLED.h>
 
 // Global Variables
 long timestamp;
 long mpuLastUpdate;
-long encoderLastUpdate;
+long debugLastUpdate;
 char currentAdjustmentAxis = 'X';
 
 boolean activeTrigger        = false;
@@ -81,6 +84,39 @@ boolean activeJoystickYminus = false;
 // Instantiate Objects
 MD_REncoder encoder = MD_REncoder(encoderCLKPin, encoderDTPin);   // Encoder
 MPU6050 mpu         = MPU6050(Wire);                              // MPU6050 gryo
+// OakOLED oled;
+// Adafruit_SSD1306 oled;
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+
+// SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+if (!display.begin(SSD1306_SWITCHCAPVCC, 0x78)) {   // Address 0x3C for 128x64
+  DEBUG_PRINTLN("SSD1306 initialization failed");
+  failsafe();
+}
+
+void oledPrint(const char* displayString, bool displayClear = false, int displayTextSize = 1, float displayTextColor = 1) {
+  oled.setTextSize(displayTextSize);
+  oled.setTextColor(displayTextColor);
+  oled.setRotation(0);
+  if (displayClear) {
+    oled.clearDisplay();
+    oled.setCursor(0, 0);
+  }
+  oled.print(displayString);
+  oled.display();
+}
+
+void oledPrintln(const char* displayString, bool displayClear = false, int displayTextSize = 1, float displayTextColor = 1) {
+  oled.setTextSize(displayTextSize);
+  oled.setTextColor(displayTextColor);
+  oled.setRotation(0);
+  if (displayClear) {
+    oled.clearDisplay();
+    oled.setCursor(0, 0);
+  }
+  oled.println(displayString);
+  oled.display();
+}
 
 void setup() {
 #ifdef DEBUG
@@ -100,6 +136,7 @@ void setup() {
   if (digitalRead(buttonTriggerPin) == 0) {
     failsafe();   // In case something goes wrong, stop everything and display serial message
   }
+
   Mouse.begin();
   Keyboard.begin();
   encoder.begin();
@@ -133,6 +170,7 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing left mouse button");
 #endif
+      oledPrintln("BANG!", true, 3);
       Mouse.press();
       activeTrigger = true;
     }
@@ -149,6 +187,7 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Encoder button pressed (Hold for aim adjust)");
 #endif
+      oledPrintln("Adjusting aim", true, 2);
       activeEncoder = true;
     }
   } else if (!pressedEncoder && activeEncoder) {
@@ -162,6 +201,7 @@ void ProcessButtons() {
     } else {
       currentAdjustmentAxis = 'X';
     }
+    oledPrintln(currentAdjustmentAxis == 'X' ? "Adjusting X axis" : "Adjusting Y axis");
     activeEncoder = false;
   }
 
@@ -173,6 +213,7 @@ void ProcessButtons() {
     } else if (!activeAlt) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing middle mouse button");
+      oledPrintln("Middle click", true, 2);
 #endif
       Mouse.press(MOUSE_MIDDLE);
       activeAlt = true;
@@ -190,6 +231,7 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing R");
 #endif
+      oledPrintln("Reloading", true, 2);
       Keyboard.press('r');
       activeReload = true;
     }
@@ -205,6 +247,7 @@ void ProcessButtons() {
     if (!activeJoystick) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing right mouse button");
+      oledPrintln("Right click", true, 2);
 #endif
       Mouse.click(MOUSE_RIGHT);
       activeJoystick = true;
@@ -228,28 +271,35 @@ void ProcessJoystick() {
     if (!activeJoystickXplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving right");
-#endif
+      oledPrintln("Moving right", true, 2);
+#else
+      Keyboard.release('A');
       Keyboard.press('D');
-      activeJoystickXplus  = true;
+#endif
       activeJoystickXminus = false;
+      activeJoystickXplus  = true;
     }
   } else if (joystickXValue < 300) {
     if (!activeJoystickXminus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving left");
-#endif
+      oledPrintln("Moving left", true, 2);
+#else
+      Keyboard.release('D');
       Keyboard.press('A');
-      activeJoystickXminus = true;
+#endif
       activeJoystickXplus  = false;
+      activeJoystickXminus = true;
     }
-  } else {
+  } else if (joystickXValue < 600 && joystickXValue > 400) {
     if (activeJoystickXminus || activeJoystickXplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Stopping X movement");
-#endif
+#else
       Keyboard.release('D');
-      activeJoystickXplus = false;
       Keyboard.release('A');
+#endif
+      activeJoystickXplus  = false;
       activeJoystickXminus = false;
     }
   }
@@ -259,30 +309,35 @@ void ProcessJoystick() {
     if (!activeJoystickYplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving forward");
-#endif
+      oledPrintln("Moving forward", true, 2);
+#else
       Keyboard.release('S');
-      activeJoystickYminus = false;
       Keyboard.press('W');
-      activeJoystickYplus = true;
+#endif
+      activeJoystickYminus = false;
+      activeJoystickYplus  = true;
     }
-  } else if (joystickXValue < 300) {
+  } else if (joystickYValue < 300) {
     if (!activeJoystickYminus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving backwards");
-#endif
+      oledPrintln("Moving backwards", true, 2);
+#else
       Keyboard.release('W');
-      activeJoystickYplus = false;
       Keyboard.press('S');
+#endif
+      activeJoystickYplus  = false;
       activeJoystickYminus = true;
     }
-  } else {
+  } else if (joystickYValue < 600 && joystickYValue > 400) {
     if (activeJoystickYminus || activeJoystickYplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Stopping Y movement");
-#endif
+#else
       Keyboard.release('W');
-      activeJoystickYplus = false;
       Keyboard.release('S');
+#endif
+      activeJoystickYplus  = false;
       activeJoystickYminus = false;
     }
   }
@@ -298,6 +353,8 @@ void ProcessEncoder() {
       DEBUG_PRINT(currentAdjustmentAxis);
       DEBUG_PRINT("-axis sensitivity to ");
       DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
+      oledPrint(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
+      oledPrintln(currentAdjustmentAxis == 'X' ? (char*)(mpuMovementMultiplierX - 1) : (char*)(mpuMovementMultiplierY - 1));
       // DEBUG_PRINTLN("Scrolling down");
 #endif
       if (currentAdjustmentAxis == 'X') {
@@ -312,6 +369,8 @@ void ProcessEncoder() {
       DEBUG_PRINT(currentAdjustmentAxis);
       DEBUG_PRINT("-axis sensitivity to ");
       DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
+      oledPrint(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
+      oledPrintln(currentAdjustmentAxis == 'X' ? (char*)(mpuMovementMultiplierX + 1) : (char*)(mpuMovementMultiplierY + 1));
       // DEBUG_PRINTLN("Scrolling up");
 #endif
       if (currentAdjustmentAxis == 'X') {
@@ -334,12 +393,14 @@ void ProcessMPU() {
   mpuAngleY = mpu.getAngleX();    // vertical axis
   mpuAngleZ = -mpu.getAngleY();   // lean
 #ifdef DEBUG_GYRO
-  DEBUG_PRINT("Gryo Hori:");
-  DEBUG_PRINT(mpuAngleX);
-  DEBUG_PRINT(" Vert:");
-  DEBUG_PRINT(mpuAngleY);
-  DEBUG_PRINT(" Lean:");
-  DEBUG_PRINTLN(mpuAngleZ);
+  if (timestamp >= debugLastUpdate + 2000) {   // only show debug info every 2 secs to avoid serial spam
+    DEBUG_PRINT("Gryo Hori:");
+    DEBUG_PRINT(mpuAngleX);
+    DEBUG_PRINT(" Vert:");
+    DEBUG_PRINT(mpuAngleY);
+    DEBUG_PRINT(" Lean:");
+    DEBUG_PRINTLN(mpuAngleZ);
+  }
 #endif
   bool mpuValidX = true, mpuValidY = true, mpuValidZ = true;
   // ignore if horizontal movement too shallow (small twitches) or too steep (no longer aiming at screen)
@@ -370,19 +431,30 @@ void ProcessMPU() {
   }
 // mpuLastAngleZ = mpuAngleZ;
 #ifdef DEBUG_GYRO
-  DEBUG_PRINT("Moving mouse X:");
-  DEBUG_PRINT(mouseMoveX);
-  DEBUG_PRINT(" and Y:");
-  DEBUG_PRINT(mouseMoveY);
-  DEBUG_PRINT(" -- Leaning:");
-  if (mpuValidZ) {
-    if (mpuAngleZ > 0) {
-      DEBUG_PRINTLN("right");
+  if (timestamp >= debugLastUpdate + 2000) {   // only show debug info every 2 secs to avoid serial spam
+    DEBUG_PRINT("Moving mouse X:");
+    DEBUG_PRINT(mouseMoveX);
+    DEBUG_PRINT(" and Y:");
+    DEBUG_PRINT(mouseMoveY);
+    DEBUG_PRINT(" -- Leaning:");
+    oledPrint("Moving mouse X:");
+    oledPrint(mouseMoveX);
+    oledPrint(" and Y:");
+    oledPrintln(mouseMoveY);
+    oledPrint(" -- Leaning:");
+    if (mpuValidZ) {
+      if (mpuAngleZ > 0) {
+        DEBUG_PRINTLN("right");
+        oledPrintln("right");
+      } else {
+        DEBUG_PRINTLN("left");
+        oledPrintln("left");
+      }
     } else {
-      DEBUG_PRINTLN("left");
+      DEBUG_PRINTLN("none");
+      oledPrintln("none");
     }
-  } else {
-    DEBUG_PRINTLN("none");
+    debugLastUpdate = timestamp;
   }
 #else
   if (mouseMoveX != 0 || mouseMoveY != 0) {
