@@ -13,7 +13,7 @@
 const long mpuUpdateRate = 5;   // In milliseconds
 
 // Multiplier converts gun movement into appropriate mouse movement
-int mpuMovementMultiplierX = 50, mpuMovementMultiplierY = 48;
+int mpuMovementMultiplierX = 55, mpuMovementMultiplierY = 55;
 
 // Debug Flags (uncomment to display comments via serial connection)
 #define DEBUG   // Enabling will wait for serial connection before activating
@@ -45,11 +45,8 @@ const uint8_t buttonJoystickPin = 15;
 #include <Adafruit_GFX.h>
 #include <MPU6050_light.h>
 #include <MD_REncoder.h>
-// #include <MPU6050.h>
-// #include <MPU6050_tockn.h>
 #include <Adafruit_SSD1306.h>
 #include <splash.h>
-// #include <OakOLED.h>
 
 // Global Variables
 long timestamp;
@@ -87,31 +84,11 @@ MPU6050 mpu         = MPU6050(Wire);                              // MPU6050 gry
 // OakOLED oled;
 // Adafruit_SSD1306 oled;
 #define SCREEN_WIDTH  128   // OLED display width, in pixels
-#define SCREEN_HEIGHT 64    // OLED display height, in pixels
+#define SCREEN_HEIGHT 32    // OLED display height, in pixels
 
-#define OLED_RESET     -1     // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x78   ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define OLED_RESET     -1     // Reset pin # (or -1 if sharinrg Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C   ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-// Adafruit_SSD1306 display(128, 64, &Wire, -1);
-#define LOGO_HEIGHT 16
-#define LOGO_WIDTH  16
-static const unsigned char PROGMEM logo_bmp[] =
-    {B00000000, B11000000,
-     B00000001, B11000000,
-     B00000001, B11000000,
-     B00000011, B11100000,
-     B11110011, B11100000,
-     B11111110, B11111000,
-     B01111110, B11111111,
-     B00110011, B10011111,
-     B00011111, B11111100,
-     B00001101, B01110000,
-     B00011011, B10100000,
-     B00111111, B11100000,
-     B00111111, B11110000,
-     B01111100, B11110000,
-     B01110000, B01110000,
-     B00000000, B00110000};
 
 void displayConfig(bool displayClear = false, int displayTextSize = 1) {
   display.setTextSize(displayTextSize);
@@ -182,7 +159,9 @@ void ProcessButtons() {
 #endif
       // Display what's happening
       displayConfig(true, 3);
-      display.println("BANG!");
+      display.setCursor(random(0, 40), random(0, 10));
+      const char* buttonTriggerWords[] = {"BANG!", " POW!", "BOOM!", "BLAM!", "WHIZ!"};
+      display.println(buttonTriggerWords[random(0, 4)]);
       display.display();
       //  End display
       Mouse.press();
@@ -203,7 +182,8 @@ void ProcessButtons() {
 #endif
       // Display what's happening
       displayConfig(true, 2);
-      display.println("Adjusting aim");
+      display.setCursor(5, 0);
+      display.println("Adjusting\n    aim");
       display.display();
       //  End display
       activeEncoder = true;
@@ -220,8 +200,8 @@ void ProcessButtons() {
       currentAdjustmentAxis = 'X';
     }
     // Display what's happening
-    displayConfig();
-    display.println(currentAdjustmentAxis == 'X' ? "Adjusting X axis" : "Adjusting Y axis");
+    displayConfig(true);
+    display.println(currentAdjustmentAxis == 'X' ? "  Adjusting X axis" : "  Adjusting Y axis");
     display.display();
     //  End display
     activeEncoder = false;
@@ -237,7 +217,8 @@ void ProcessButtons() {
       DEBUG_PRINTLN("Pressing middle mouse button");
       // Display what's happening
       displayConfig(true, 2);
-      display.println("Middle click");
+      display.setCursor(15, 0);
+      display.println("Middle\n   click");
       display.display();
       //  End display
 #endif
@@ -259,6 +240,7 @@ void ProcessButtons() {
 #endif
       // Display what's happening
       displayConfig(true, 2);
+      display.setCursor(10, 5);
       display.println("Reloading");
       display.display();
       //  End display
@@ -279,7 +261,8 @@ void ProcessButtons() {
       DEBUG_PRINTLN("Pressing right mouse button");
       // Display what's happening
       displayConfig(true, 2);
-      display.println("Right click");
+      display.setCursor(15, 0);
+      display.println("Right\n   click");
       display.display();
       //  End display
 #endif
@@ -307,7 +290,8 @@ void ProcessJoystick() {
       DEBUG_PRINTLN("Moving right");
       // Display what's happening
       displayConfig(true, 2);
-      display.println("Moving right");
+      display.setCursor(15, 0);
+      display.println("Moving\n  right");
       display.display();
       //  End display
 #else
@@ -323,7 +307,8 @@ void ProcessJoystick() {
       DEBUG_PRINTLN("Moving left");
       // Display what's happening
       displayConfig(true, 2);
-      display.println("Moving left");
+      display.setCursor(15, 0);
+      display.println("Moving\n  left");
       display.display();
       //  End display
 #else
@@ -353,7 +338,8 @@ void ProcessJoystick() {
       DEBUG_PRINTLN("Moving forward");
       // Display what's happening
       displayConfig(true, 2);
-      display.println("Moving forward");
+      display.setCursor(20, 5);
+      display.println("Onward!");
       display.display();
       //  End display
 #else
@@ -369,7 +355,8 @@ void ProcessJoystick() {
       DEBUG_PRINTLN("Moving backwards");
       // Display what's happening
       displayConfig(true, 2);
-      display.println("Moving backwards");
+      display.setCursor(15, 5);
+      display.println("Retreat!");
       display.display();
       //  End display
 #else
@@ -404,8 +391,10 @@ void ProcessEncoder() {
       DEBUG_PRINT("-axis sensitivity to ");
       DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
       // Display what's happening
-      displayConfig();
-      display.print(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
+      displayConfig(true);
+      display.println(currentAdjustmentAxis == 'X' ? "  Adjusting X axis" : "  Adjusting Y axis");
+      display.println("--------------------");
+      display.print(currentAdjustmentAxis == 'X' ? "X axis multiplier: " : "Y axis multiplier: ");
       display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
       display.display();
       //  End display
@@ -424,8 +413,10 @@ void ProcessEncoder() {
       DEBUG_PRINT("-axis sensitivity to ");
       DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
       // Display what's happening
-      displayConfig();
-      display.print(currentAdjustmentAxis == 'X' ? "X axis mult: " : "Y axis mult: ");
+      displayConfig(true);
+      display.println(currentAdjustmentAxis == 'X' ? "  Adjusting X axis" : "  Adjusting Y axis");
+      display.println("--------------------");
+      display.print(currentAdjustmentAxis == 'X' ? "X axis multiplier: " : "Y axis multiplier: ");
       display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
       display.display();
       //  End display
@@ -461,19 +452,9 @@ void ProcessMPU() {
   }
 #endif
   bool mpuValidX = true, mpuValidY = true, mpuValidZ = true;
-  // ignore if horizontal movement too shallow (small twitches) or too steep (no longer aiming at screen)
-  // if (mpuAngleX < .1 && mpuAngleX > -.1 /* || mpuAngleX > 60 || mpuAngleX < -60 */) {
-  // mpuAngleX = 0;
-  // mpuValidX = false;
-  // }
-  // ignore if vertical movement too shallow (small twitches) or too steep (no longer aiming at screen)
-  // if (mpuAngleY < .1 && mpuAngleY > -.1 /* || mpuAngleY > 45 || mpuAngleY < -45 */) {
-  // mpuAngleY = 0;
-  // mpuValidY = false;
-  // }
+
   // ignore if lean angle too shallow or too steep
   if (mpuAngleZ < 40 && mpuAngleZ > -40 /* || mpuAngleZ > 85 || mpuAngleZ < -85 */) {
-    // mpuAngleZ = 0;
     mpuValidZ = false;
   }
 
@@ -487,7 +468,7 @@ void ProcessMPU() {
     if (!activeEncoder) mouseMoveY = (mpuAngleY - mpuLastAngleY) * mpuMovementMultiplierY;
     mpuLastAngleY = mpuAngleY;
   }
-// mpuLastAngleZ = mpuAngleZ;
+
 #ifdef DEBUG_GYRO
   if (timestamp >= debugLastUpdate + 2000) {   // only show debug info every 2 secs to avoid serial spam
     DEBUG_PRINT("Moving mouse X:");
@@ -497,11 +478,11 @@ void ProcessMPU() {
     DEBUG_PRINT(" -- Leaning:");
     // Display what's happening
     displayConfig(true);
-    display.println("Moving mouse X:");
-    display.println(mouseMoveX);
-    display.println(" and Y:");
-    display.println(mouseMoveY);
-    display.println(" -- Leaning:");
+    display.print("Moving mouse \nX:");
+    display.print(mouseMoveX);
+    display.print(" and Y:");
+    display.print(mouseMoveY);
+    display.println("\nLeaning:");
     //  End display
     if (mpuValidZ) {
       if (mpuAngleZ > 0) {
