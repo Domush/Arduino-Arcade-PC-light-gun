@@ -205,8 +205,8 @@ void ProcessButtons() {
 #endif
     // Display what's happening
     displayConfig(true, 2);
-    display.setCursor(20, 0);
-    display.println("Axis\n  mode");
+    display.setCursor(0, 0);
+    display.println("X/Y adjust\n  mode");
     display.display();
     //  End display
     activeScroll = false;
