@@ -13,10 +13,10 @@
 const long mpuUpdateRate = 5;   // In milliseconds
 
 // Multiplier converts gun movement into appropriate mouse movement
-int mpuMovementMultiplierX = 55, mpuMovementMultiplierY = 55;
+int mpuMovementMultiplierX = 64, mpuMovementMultiplierY = 53;
 
 // Debug Flags (uncomment to display comments via serial connection)
-#define DEBUG   // Enabling will wait for serial connection before activating
+// #define DEBUG   // Enabling will wait for serial connection before activating
 #ifdef DEBUG
   #define DEBUG_BUTTONS   // Show button presses (and what they do)
   // #define DEBUG_GYRO // Show mouse movements (very spammy, use with caution)
@@ -25,15 +25,17 @@ int mpuMovementMultiplierX = 55, mpuMovementMultiplierY = 55;
 #endif
 
 // Pin Definitions (change with care)
-const uint8_t buttonTriggerPin  = 14;
-const uint8_t buttonAltPin      = 16;
-const uint8_t buttonReloadPin   = 10;
-const uint8_t encoderDTPin      = 6;
-const uint8_t encoderCLKPin     = 5;
-const uint8_t buttonEncoderPin  = 7;
-const uint8_t joystickXPin      = A0;
-const uint8_t joystickYPin      = A1;
-const uint8_t buttonJoystickPin = 15;
+const uint8_t buttonTriggerPin      = 10;
+const uint8_t buttonAltPin          = 16;
+const uint8_t buttonReloadPin       = 14;
+const uint8_t encoderDTPin          = 6;
+const uint8_t encoderCLKPin         = 5;
+const uint8_t buttonEncoderPin      = 7;
+const uint8_t joystickXPin          = A0;
+const uint8_t joystickYPin          = A1;
+const uint8_t buttonJoystickPin     = 15;
+const uint8_t switchGunEnablePin    = 9;
+const uint8_t switchScrollTogglePin = 8;
 
 // ========================
 // DO NOT EDIT BELOW HERE
@@ -54,6 +56,8 @@ long mpuLastUpdate;
 long debugLastUpdate;
 char currentAdjustmentAxis = 'X';
 
+boolean activeScroll         = false;
+boolean activeGun            = false;
 boolean activeTrigger        = false;
 boolean activeAlt            = false;
 boolean activeReload         = false;
@@ -107,6 +111,8 @@ void setup() {
     ;   // Wait for connection
 #endif
 
+  pinMode(switchGunEnablePin, INPUT_PULLUP);
+  pinMode(switchScrollTogglePin, INPUT_PULLUP);
   pinMode(buttonTriggerPin, INPUT_PULLUP);
   pinMode(buttonAltPin, INPUT_PULLUP);
   pinMode(buttonReloadPin, INPUT_PULLUP);
@@ -146,13 +152,69 @@ void loop() {
 
 // Handle button presses from all sources
 void ProcessButtons() {
-  boolean pressedTrigger  = !digitalRead(buttonTriggerPin);
-  boolean pressedAlt      = !digitalRead(buttonAltPin);
-  boolean pressedReload   = !digitalRead(buttonReloadPin);
-  boolean pressedJoystick = !digitalRead(buttonJoystickPin);
-  boolean pressedEncoder  = !digitalRead(buttonEncoderPin);
+  boolean pressedGunEnable    = !digitalRead(switchGunEnablePin);
+  boolean pressedScrollToggle = !digitalRead(switchScrollTogglePin);
+  boolean pressedTrigger      = !digitalRead(buttonTriggerPin);
+  boolean pressedAlt          = !digitalRead(buttonAltPin);
+  boolean pressedReload       = !digitalRead(buttonReloadPin);
+  boolean pressedJoystick     = !digitalRead(buttonJoystickPin);
+  boolean pressedEncoder      = !digitalRead(buttonEncoderPin);
 
-  if (pressedTrigger) {
+  if (pressedGunEnable) {
+    if (!activeGun) {
+#ifdef DEBUG_BUTTONS
+      DEBUG_PRINTLN("Enabling Gun Controls");
+#endif
+      // Display what's happening
+      displayConfig(true, 2);
+      display.setCursor(15, 0);
+      display.println("Powering\n    up!");
+      display.display();
+      //  End display
+      activeGun = true;
+    }
+  } else if (!pressedTrigger && activeTrigger) {
+#ifdef DEBUG_BUTTONS
+    DEBUG_PRINTLN("Disabling Gun Controls");
+#endif
+    // Display what's happening
+    displayConfig(true, 2);
+    display.setCursor(15, 0);
+    display.println("Gun\n disabled :(");
+    display.display();
+    //  End display
+    activeGun = false;
+  }
+
+  /* Not implemented yet
+  if (pressedScrollToggle) {
+    if (!activeScroll) {
+#ifdef DEBUG_BUTTONS
+      DEBUG_PRINTLN("Enabling rotary scrolling");
+#endif
+      // Display what's happening
+      displayConfig(true, 2);
+      display.setCursor(10, 0);
+      display.println("Scrolling\n  mode");
+      display.display();
+      //  End display
+      activeScroll = true;
+    }
+  } else if (!pressedTrigger && activeTrigger) {
+#ifdef DEBUG_BUTTONS
+    DEBUG_PRINTLN("Enabling rotary scrolling");
+#endif
+    // Display what's happening
+    displayConfig(true, 2);
+    display.setCursor(0, 0);
+    display.println("Axis adjust\n   mode");
+    display.display();
+    //  End display
+    activeScroll = false;
+  }
+  */
+
+  if (pressedTrigger && activeGun) {
     if (!activeTrigger) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing left mouse button");
@@ -171,6 +233,8 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Releasing left mouse button");
 #endif
+    displayConfig(true);
+    display.display();
     Mouse.release();
     activeTrigger = false;
   }
@@ -207,21 +271,30 @@ void ProcessButtons() {
     activeEncoder = false;
   }
 
-  if (pressedAlt) {
+  if (pressedAlt && activeGun) {
     if (!activeAlt && activeEncoder) {
       // If *both* the encode and alt buttons are pressed simultaneously, re-calibrate the gyro
       // mpu.calcGyroOffsets(true);
+#ifdef DEBUG_BUTTONS
+      DEBUG_PRINTLN("Re-calculating gyro offsets");
+#endif
+      // Display what's happening
+      displayConfig(true, 2);
+      display.setCursor(5, 0);
+      display.println("Initialize\n   gyro");
+      display.display();
+      //  End display
       mpu.calcOffsets();   // gyro and accelerometer calibration
     } else if (!activeAlt) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing middle mouse button");
+#endif
       // Display what's happening
       displayConfig(true, 2);
       display.setCursor(15, 0);
       display.println("Middle\n   click");
       display.display();
       //  End display
-#endif
       Mouse.press(MOUSE_MIDDLE);
       activeAlt = true;
     }
@@ -229,11 +302,13 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Releasing middle mouse button");
 #endif
+    displayConfig(true);
+    display.display();
     Mouse.release(MOUSE_MIDDLE);
     activeAlt = false;
   }
 
-  if (pressedReload) {
+  if (pressedReload && activeGun) {
     if (!activeReload) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing R");
@@ -251,21 +326,23 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Releasing R");
 #endif
+    displayConfig(true);
+    display.display();
     Keyboard.release('r');
     activeReload = false;
   }
 
-  if (pressedJoystick) {
+  if (pressedJoystick && activeGun) {
     if (!activeJoystick) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Pressing right mouse button");
+#endif
       // Display what's happening
       displayConfig(true, 2);
       display.setCursor(15, 0);
       display.println("Right\n   click");
       display.display();
       //  End display
-#endif
       Mouse.click(MOUSE_RIGHT);
       activeJoystick = true;
     }
@@ -273,6 +350,8 @@ void ProcessButtons() {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Releasing right mouse button");
 #endif
+    displayConfig(true);
+    display.display();
     Mouse.release(MOUSE_RIGHT);
     activeJoystick = false;
   }
@@ -284,34 +363,34 @@ void ProcessJoystick() {
   int joystickYValue = analogRead(joystickYPin);
 
   // Process X values (strafing movement)
-  if (joystickXValue > 700) {
+  if (joystickXValue > 700 && activeGun) {
     if (!activeJoystickXplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving right");
+#else
       // Display what's happening
       displayConfig(true, 2);
       display.setCursor(15, 0);
       display.println("Moving\n  right");
       display.display();
       //  End display
-#else
       Keyboard.release('A');
       Keyboard.press('D');
 #endif
       activeJoystickXminus = false;
       activeJoystickXplus  = true;
     }
-  } else if (joystickXValue < 300) {
+  } else if (joystickXValue < 300 && activeGun) {
     if (!activeJoystickXminus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving left");
+#else
       // Display what's happening
       displayConfig(true, 2);
       display.setCursor(15, 0);
       display.println("Moving\n  left");
       display.display();
       //  End display
-#else
       Keyboard.release('D');
       Keyboard.press('A');
 #endif
@@ -323,6 +402,8 @@ void ProcessJoystick() {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Stopping X movement");
 #else
+      displayConfig(true);
+      display.display();
       Keyboard.release('D');
       Keyboard.release('A');
 #endif
@@ -332,34 +413,34 @@ void ProcessJoystick() {
   }
 
   // Process Y values (forward/reverse movement)
-  if (joystickYValue > 700) {
+  if (joystickYValue > 700 && activeGun) {
     if (!activeJoystickYplus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving forward");
+#else
       // Display what's happening
       displayConfig(true, 2);
       display.setCursor(20, 5);
       display.println("Onward!");
       display.display();
       //  End display
-#else
       Keyboard.release('S');
       Keyboard.press('W');
 #endif
       activeJoystickYminus = false;
       activeJoystickYplus  = true;
     }
-  } else if (joystickYValue < 300) {
+  } else if (joystickYValue < 300 && activeGun) {
     if (!activeJoystickYminus) {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Moving backwards");
+#else
       // Display what's happening
       displayConfig(true, 2);
       display.setCursor(15, 5);
       display.println("Retreat!");
       display.display();
       //  End display
-#else
       Keyboard.release('W');
       Keyboard.press('S');
 #endif
@@ -371,6 +452,8 @@ void ProcessJoystick() {
 #ifdef DEBUG_JOYSTICK
       DEBUG_PRINTLN("Stopping Y movement");
 #else
+      displayConfig(true);
+      display.display();
       Keyboard.release('W');
       Keyboard.release('S');
 #endif
@@ -383,51 +466,73 @@ void ProcessJoystick() {
 // Handle encoder turns
 void ProcessEncoder() {
   uint8_t encoderPos = encoder.read();
-  if (encoderPos) {
+  if (encoderPos && activeGun) {
     if (encoderPos == DIR_CCW) {
 #ifdef DEBUG_ENCODER
-      DEBUG_PRINT("Reducing ");
-      DEBUG_PRINT(currentAdjustmentAxis);
-      DEBUG_PRINT("-axis sensitivity to ");
-      DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
-      // Display what's happening
-      displayConfig(true);
-      display.println(currentAdjustmentAxis == 'X' ? "  Adjusting X axis" : "  Adjusting Y axis");
-      display.println("--------------------");
-      display.print(currentAdjustmentAxis == 'X' ? "X axis multiplier: " : "Y axis multiplier: ");
-      display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
-      display.display();
-      //  End display
-      // DEBUG_PRINTLN("Scrolling down");
-#endif
-      if (currentAdjustmentAxis == 'X') {
-        mpuMovementMultiplierX -= 1;
+      if (activeScroll) {
+        DEBUG_PRINTLN("Scrolling down");
       } else {
-        mpuMovementMultiplierY -= 1;
+        DEBUG_PRINT("Reducing ");
+        DEBUG_PRINT(currentAdjustmentAxis);
+        DEBUG_PRINT("-axis sensitivity to ");
+        DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
       }
-      // Mouse.move(0, 0, -1);
+#endif
+      if (activeScroll) {
+        // Display what's happening
+        displayConfig(true);
+        display.println("Scrolling\n   down");
+        display.display();
+        //  End display
+        Mouse.move(0, 0, -1);
+      } else {
+        // Display what's happening
+        displayConfig(true);
+        display.println(currentAdjustmentAxis == 'X' ? "  Adjusting X axis" : "  Adjusting Y axis");
+        display.println("--------------------");
+        display.print(currentAdjustmentAxis == 'X' ? "X axis multiplier: " : "Y axis multiplier: ");
+        display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX - 1 : mpuMovementMultiplierY - 1);
+        display.display();
+        //  End display
+        if (currentAdjustmentAxis == 'X') {
+          mpuMovementMultiplierX -= 1;
+        } else {
+          mpuMovementMultiplierY -= 1;
+        }
+      }
     } else if (encoderPos == DIR_CW) {
 #ifdef DEBUG_ENCODER
-      DEBUG_PRINT("Increasing ");
-      DEBUG_PRINT(currentAdjustmentAxis);
-      DEBUG_PRINT("-axis sensitivity to ");
-      DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
-      // Display what's happening
-      displayConfig(true);
-      display.println(currentAdjustmentAxis == 'X' ? "  Adjusting X axis" : "  Adjusting Y axis");
-      display.println("--------------------");
-      display.print(currentAdjustmentAxis == 'X' ? "X axis multiplier: " : "Y axis multiplier: ");
-      display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
-      display.display();
-      //  End display
-      // DEBUG_PRINTLN("Scrolling up");
-#endif
-      if (currentAdjustmentAxis == 'X') {
-        mpuMovementMultiplierX += 1;
+      if (activeScroll) {
+        DEBUG_PRINTLN("Scrolling down");
       } else {
-        mpuMovementMultiplierY += 1;
+        DEBUG_PRINT("Increasing ");
+        DEBUG_PRINT(currentAdjustmentAxis);
+        DEBUG_PRINT("-axis sensitivity to ");
+        DEBUG_PRINTLN(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
       }
-      // Mouse.move(0, 0, 1);
+#endif
+      if (activeScroll) {
+        // Display what's happening
+        displayConfig(true);
+        display.println("Scrolling\n   up");
+        display.display();
+        //  End display
+        Mouse.move(0, 0, 1);
+      } else {
+        // Display what's happening
+        displayConfig(true);
+        display.println(currentAdjustmentAxis == 'X' ? "  Adjusting X axis" : "  Adjusting Y axis");
+        display.println("--------------------");
+        display.print(currentAdjustmentAxis == 'X' ? "X axis multiplier: " : "Y axis multiplier: ");
+        display.println(currentAdjustmentAxis == 'X' ? mpuMovementMultiplierX + 1 : mpuMovementMultiplierY + 1);
+        display.display();
+        //  End display
+        if (currentAdjustmentAxis == 'X') {
+          mpuMovementMultiplierX += 1;
+        } else {
+          mpuMovementMultiplierY += 1;
+        }
+      }
     }
   }
 }
@@ -439,8 +544,8 @@ void ProcessMPU() {
   mpu.update();
   // fetch axis and convert to gun-specific axes
   mpuAngleX = -mpu.getAngleZ();   // horizontal axis
-  mpuAngleY = mpu.getAngleX();    // vertical axis
-  mpuAngleZ = -mpu.getAngleY();   // lean
+  mpuAngleY = mpu.getAngleY();    // vertical axis
+  mpuAngleZ = mpu.getAngleX();    // lean
 #ifdef DEBUG_GYRO
   if (timestamp >= debugLastUpdate + 2000) {   // only show debug info every 2 secs to avoid serial spam
     DEBUG_PRINT("Gryo Hori:");
@@ -453,8 +558,8 @@ void ProcessMPU() {
 #endif
   bool mpuValidX = true, mpuValidY = true, mpuValidZ = true;
 
-  // ignore if lean angle too shallow or too steep
-  if (mpuAngleZ < 40 && mpuAngleZ > -40 /* || mpuAngleZ > 85 || mpuAngleZ < -85 */) {
+  // ignore if lean angle too shallow (ignore twitching) or too steep (assume gun laying down)
+  if ((mpuAngleZ < 40 && mpuAngleZ > -40) || mpuAngleZ > 75 || mpuAngleZ < -75) {
     mpuValidZ = false;
   }
 
@@ -500,10 +605,10 @@ void ProcessMPU() {
     debugLastUpdate = timestamp;
   }
 #else
-  if (mouseMoveX != 0 || mouseMoveY != 0) {
+  if (mouseMoveX != 0 || mouseMoveY != 0 && activeGun) {
     Mouse.move(mouseMoveX, mouseMoveY, 0);
   }
-  if (mpuValidZ) {
+  if (mpuValidZ && activeGun) {
     if (mpuAngleZ > 0) {
       Keyboard.press(KEY_PAGE_DOWN);
     } else {
