@@ -374,8 +374,8 @@ void ProcessJoystick() {
       display.println("Moving\n  right");
       display.display();
       //  End display
-      Keyboard.release('A');
-      Keyboard.press('D');
+      Keyboard.release('a');
+      Keyboard.press('d');
 #endif
       activeJoystickXminus = false;
       activeJoystickXplus  = true;
@@ -391,8 +391,8 @@ void ProcessJoystick() {
       display.println("Moving\n  left");
       display.display();
       //  End display
-      Keyboard.release('D');
-      Keyboard.press('A');
+      Keyboard.release('d');
+      Keyboard.press('a');
 #endif
       activeJoystickXplus  = false;
       activeJoystickXminus = true;
@@ -404,8 +404,8 @@ void ProcessJoystick() {
 #else
       displayConfig(true);
       display.display();
-      Keyboard.release('D');
-      Keyboard.release('A');
+      Keyboard.release('d');
+      Keyboard.release('a');
 #endif
       activeJoystickXplus  = false;
       activeJoystickXminus = false;
@@ -424,8 +424,8 @@ void ProcessJoystick() {
       display.println("Onward!");
       display.display();
       //  End display
-      Keyboard.release('S');
-      Keyboard.press('W');
+      Keyboard.release('s');
+      Keyboard.press('w');
 #endif
       activeJoystickYminus = false;
       activeJoystickYplus  = true;
@@ -441,8 +441,8 @@ void ProcessJoystick() {
       display.println("Retreat!");
       display.display();
       //  End display
-      Keyboard.release('W');
-      Keyboard.press('S');
+      Keyboard.release('w');
+      Keyboard.press('s');
 #endif
       activeJoystickYplus  = false;
       activeJoystickYminus = true;
@@ -454,8 +454,8 @@ void ProcessJoystick() {
 #else
       displayConfig(true);
       display.display();
-      Keyboard.release('W');
-      Keyboard.release('S');
+      Keyboard.release('w');
+      Keyboard.release('s');
 #endif
       activeJoystickYplus  = false;
       activeJoystickYminus = false;
