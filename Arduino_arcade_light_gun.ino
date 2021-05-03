@@ -152,13 +152,13 @@ void loop() {
 
 // Handle button presses from all sources
 void ProcessButtons() {
-  boolean pressedGunEnable    = !digitalRead(switchGunEnablePin);
-  boolean pressedScrollToggle = !digitalRead(switchScrollTogglePin);
-  boolean pressedTrigger      = !digitalRead(buttonTriggerPin);
-  boolean pressedAlt          = !digitalRead(buttonAltPin);
-  boolean pressedReload       = !digitalRead(buttonReloadPin);
-  boolean pressedJoystick     = !digitalRead(buttonJoystickPin);
-  boolean pressedEncoder      = !digitalRead(buttonEncoderPin);
+  boolean pressedGunEnable = !digitalRead(switchGunEnablePin);
+  // boolean pressedScrollToggle = !digitalRead(switchScrollTogglePin);
+  boolean pressedTrigger  = !digitalRead(buttonTriggerPin);
+  boolean pressedAlt      = !digitalRead(buttonAltPin);
+  boolean pressedReload   = !digitalRead(buttonReloadPin);
+  boolean pressedJoystick = !digitalRead(buttonJoystickPin);
+  boolean pressedEncoder  = !digitalRead(buttonEncoderPin);
 
   if (pressedGunEnable) {
     if (!activeGun) {
@@ -173,7 +173,7 @@ void ProcessButtons() {
       //  End display
       activeGun = true;
     }
-  } else if (!pressedTrigger && activeTrigger) {
+  } else if (!pressedGunEnable && activeGun) {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Disabling Gun Controls");
 #endif
@@ -200,7 +200,7 @@ void ProcessButtons() {
       //  End display
       activeScroll = true;
     }
-  } else if (!pressedTrigger && activeTrigger) {
+  } else if (!pressedScrollToggle && activeScroll) {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Enabling rotary scrolling");
 #endif
