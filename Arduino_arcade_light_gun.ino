@@ -12,8 +12,9 @@
 // Tuning Options
 const long mpuUpdateRate = 5;   // In milliseconds
 
-// Multiplier converts gun movement into appropriate mouse movement
-int mpuMovementMultiplierX = 64, mpuMovementMultiplierY = 53;
+// Default multiplier (if EEPROM is empty) -- Converts gun movement into appropriate mouse movement
+int mpuMovementMultiplierX = 64;
+int mpuMovementMultiplierY = 53;
 
 // Debug Flags (uncomment to display comments via serial connection)
 // #define DEBUG   // Enabling will wait for serial connection before activating
@@ -49,12 +50,16 @@ const uint8_t switchScrollTogglePin = 8;
 #include <MD_REncoder.h>
 #include <Adafruit_SSD1306.h>
 #include <splash.h>
+#include <EEPROM.h>
 
 // Global Variables
 long timestamp;
 long mpuLastUpdate;
 long debugLastUpdate;
-char currentAdjustmentAxis = 'X';
+long eepromLastUpdate;
+char currentAdjustmentAxis       = 'X';
+boolean mpuMultiplierXHasChanged = false;
+boolean mpuMultiplierYHasChanged = false;
 
 boolean activeScroll         = false;
 boolean activeGun            = false;
@@ -135,6 +140,17 @@ void setup() {
     DEBUG_PRINTLN("SSD1306 initialization failed");
     failsafe();
   }
+  EEPROM.begin();
+  int eepromValue = 0;
+  EEPROM.get(0, eepromValue);   // 0 = address of mpuMovementMultiplierX value in EEPROM
+  if (eepromValue > 0 && eepromValue < 255) {
+    mpuMovementMultiplierX = eepromValue;
+  }
+  eepromValue = 0;
+  EEPROM.get(1, eepromValue);   // 1 = address of mpuMovementMultiplierY value in EEPROM
+  if (eepromValue > 0 && eepromValue < 255) {
+    mpuMovementMultiplierY = eepromValue;
+  }
   // mpu.calcGyroOffsets(true);
   mpu.calcOffsets();   // Calibrate gyro and accelerometer
 }
@@ -144,6 +160,10 @@ void loop() {
   if (timestamp >= mpuLastUpdate + mpuUpdateRate) {
     mpuLastUpdate = timestamp;
     ProcessMPU();
+  }
+  if (timestamp >= eepromLastUpdate + 60000) {   // Delay EEPROM saves by 60 seconds to increase EEPROM lifespan
+    eepromLastUpdate = timestamp;
+    SaveToEEPROM();
   }
   ProcessEncoder();
   ProcessJoystick();
@@ -258,8 +278,16 @@ void ProcessButtons() {
 #endif
     if (currentAdjustmentAxis == 'X') {
       currentAdjustmentAxis = 'Y';
+      if (mpuMultiplierXHasChanged) {
+        EEPROM.put(0, mpuMovementMultiplierX);
+        mpuMultiplierXHasChanged = false;
+      }
     } else {
       currentAdjustmentAxis = 'X';
+      if (mpuMultiplierYHasChanged) {
+        EEPROM.put(1, mpuMovementMultiplierY);
+        mpuMultiplierYHasChanged = false;
+      }
     }
     // Display what's happening
     displayConfig(true);
@@ -494,8 +522,10 @@ void ProcessEncoder() {
         //  End display
         if (currentAdjustmentAxis == 'X') {
           mpuMovementMultiplierX -= 1;
+          mpuMultiplierXHasChanged = true;   // mark changed so it's saved to EEPROM later
         } else {
           mpuMovementMultiplierY -= 1;
+          mpuMultiplierYHasChanged = true;   // mark changed so it's saved to EEPROM later
         }
       }
     } else if (encoderPos == DIR_CW) {
@@ -617,6 +647,28 @@ void ProcessMPU() {
     Keyboard.release(KEY_PAGE_UP);
   }
 #endif
+}
+
+//  Save values to EEPROM after a delay (saves on EEPROM lifespan)
+void SaveToEEPROM() {
+  if (mpuMultiplierXHasChanged) {
+#ifdef DEBUG_ENCODER
+    DEBUG_PRINT("Saving X movement multiplier (");
+    DEBUG_PRINT(mpuMovementMultiplierX);
+    DEBUG_PRINTLN(") to EEPROM");
+#endif
+    EEPROM.put(0, mpuMovementMultiplierX);
+    mpuMultiplierXHasChanged = false;
+  }
+  if (mpuMultiplierYHasChanged) {
+#ifdef DEBUG_ENCODER
+    DEBUG_PRINT("Saving Y movement multiplier (");
+    DEBUG_PRINT(mpuMovementMultiplierY);
+    DEBUG_PRINTLN(") to EEPROM");
+#endif
+    EEPROM.put(1, mpuMovementMultiplierY);
+    mpuMultiplierYHasChanged = false;
+  }
 }
 
 // Abort message upon initialization failure
