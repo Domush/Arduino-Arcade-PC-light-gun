@@ -36,7 +36,7 @@ const uint8_t joystickXPin          = A0;
 const uint8_t joystickYPin          = A1;
 const uint8_t buttonJoystickPin     = 15;
 const uint8_t switchGunEnablePin    = 9;
-const uint8_t switchScrollTogglePin = 8;
+const uint8_t switchScrollEnablePin = 8;
 
 // ========================
 // DO NOT EDIT BELOW HERE
@@ -57,9 +57,11 @@ long timestamp;
 long mpuLastUpdate;
 long debugLastUpdate;
 long eepromLastUpdate;
+long displayLastUpdate;
 char currentAdjustmentAxis       = 'X';
 boolean mpuMultiplierXHasChanged = false;
 boolean mpuMultiplierYHasChanged = false;
+boolean displayDimmed            = false;
 
 boolean activeScroll         = false;
 boolean activeGun            = false;
@@ -99,6 +101,7 @@ MPU6050 mpu         = MPU6050(Wire);                              // MPU6050 gry
 #define SCREEN_ADDRESS 0x3C   ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// Configure display options
 void displayConfig(bool displayClear = false, int displayTextSize = 1) {
   display.setTextSize(displayTextSize);
   display.setTextColor(1);
@@ -107,6 +110,11 @@ void displayConfig(bool displayClear = false, int displayTextSize = 1) {
     display.clearDisplay();
     display.setCursor(0, 0);
   }
+  if (displayDimmed) {
+    display.dim(false);
+    displayDimmed = false;
+  }
+  displayLastUpdate = timestamp;
 }
 
 void setup() {
@@ -117,7 +125,7 @@ void setup() {
 #endif
 
   pinMode(switchGunEnablePin, INPUT_PULLUP);
-  pinMode(switchScrollTogglePin, INPUT_PULLUP);
+  pinMode(switchScrollEnablePin, INPUT_PULLUP);
   pinMode(buttonTriggerPin, INPUT_PULLUP);
   pinMode(buttonAltPin, INPUT_PULLUP);
   pinMode(buttonReloadPin, INPUT_PULLUP);
@@ -157,30 +165,44 @@ void setup() {
 
 void loop() {
   timestamp = millis();
+  // Move mouse cursor
   if (timestamp >= mpuLastUpdate + mpuUpdateRate) {
     mpuLastUpdate = timestamp;
     ProcessMPU();
   }
+  // Save updated values to EEPROM
   if (timestamp >= eepromLastUpdate + 60000) {   // Delay EEPROM saves by 60 seconds to increase EEPROM lifespan
     eepromLastUpdate = timestamp;
     SaveToEEPROM();
   }
-  ProcessEncoder();
-  ProcessJoystick();
-  ProcessButtons();
+  // Dim the OLED display if left unused
+  if (!displayDimmed) {
+    if (timestamp >= displayLastUpdate + 5000) {   // Delay EEPROM saves by 60 seconds to increase EEPROM lifespan
+      if (!activeGun) {
+        // Display if gun is disabled
+        displayConfig(true, 2);
+        display.setCursor(15, 0);
+        display.println("  Gun\n disabled");
+        display.display();
+        //  End display
+      }
+      display.dim(true);
+      displayDimmed = true;
+    }
+  }
+  ProcessSwitches();   // Check all toggle switches
+  ProcessEncoder();    // Check if encoder has been turned
+  ProcessJoystick();   // Check if joystick is being used
+  ProcessButtons();    // Check all buttons
 }
 
-// Handle button presses from all sources
-void ProcessButtons() {
-  boolean pressedGunEnable    = !digitalRead(switchGunEnablePin);
-  boolean pressedScrollToggle = !digitalRead(switchScrollTogglePin);
-  boolean pressedTrigger      = !digitalRead(buttonTriggerPin);
-  boolean pressedAlt          = !digitalRead(buttonAltPin);
-  boolean pressedReload       = !digitalRead(buttonReloadPin);
-  boolean pressedJoystick     = !digitalRead(buttonJoystickPin);
-  boolean pressedEncoder      = !digitalRead(buttonEncoderPin);
+// Handle toggle switches from all sources
+void ProcessSwitches() {
+  boolean gunEnabled    = !digitalRead(switchGunEnablePin);
+  boolean scrollEnabled = !digitalRead(switchScrollEnablePin);
 
-  if (pressedScrollToggle) {
+  // Process scroll/XY adjust toggle switch
+  if (scrollEnabled) {
     if (!activeScroll) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Rotary scrolling mode");
@@ -193,7 +215,7 @@ void ProcessButtons() {
       //  End display
       activeScroll = true;
     }
-  } else if (!pressedScrollToggle && activeScroll) {
+  } else if (!scrollEnabled && activeScroll) {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Axis sensitivity adjustment mode");
 #endif
@@ -206,7 +228,8 @@ void ProcessButtons() {
     activeScroll = false;
   }
 
-  if (pressedGunEnable) {
+  // Process gun enable/disable toggle switch
+  if (gunEnabled) {
     if (!activeGun) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Enabling Gun Controls");
@@ -219,19 +242,29 @@ void ProcessButtons() {
       //  End display
       activeGun = true;
     }
-  } else if (!pressedGunEnable && activeGun) {
+  } else if (!gunEnabled && activeGun) {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINTLN("Disabling Gun Controls");
 #endif
     // Display what's happening
     displayConfig(true, 2);
     display.setCursor(15, 0);
-    display.println("Gun\n disabled :(");
+    display.println("  Gun\n disabled");
     display.display();
     //  End display
     activeGun = false;
   }
+}
 
+// Handle button presses from all sources
+void ProcessButtons() {
+  boolean pressedTrigger  = !digitalRead(buttonTriggerPin);
+  boolean pressedAlt      = !digitalRead(buttonAltPin);
+  boolean pressedReload   = !digitalRead(buttonReloadPin);
+  boolean pressedJoystick = !digitalRead(buttonJoystickPin);
+  boolean pressedEncoder  = !digitalRead(buttonEncoderPin);
+
+  // Process trigger button
   if (pressedTrigger && activeGun) {
     if (!activeTrigger) {
 #ifdef DEBUG_BUTTONS
@@ -257,6 +290,7 @@ void ProcessButtons() {
     activeTrigger = false;
   }
 
+  //  Process encoder button
   if (pressedEncoder) {
     if (!activeEncoder) {
 #ifdef DEBUG_BUTTONS
@@ -270,7 +304,7 @@ void ProcessButtons() {
       //  End display
       activeEncoder = true;
     }
-  } else if (!pressedEncoder && activeEncoder) {
+  } else if (!pressedEncoder && activeEncoder && !activeScroll) {
 #ifdef DEBUG_BUTTONS
     DEBUG_PRINT("Encoder button released");
     DEBUG_PRINT(" - Switching sensitivity adjustment to ");
@@ -295,8 +329,13 @@ void ProcessButtons() {
     display.display();
     //  End display
     activeEncoder = false;
+  } else if (!pressedEncoder && activeEncoder && activeScroll) {
+    display.clearDisplay();   // Nothing to display
+    display.display();
+    activeEncoder = false;
   }
 
+  //  Process Alt button (forward trigger)
   if (pressedAlt && activeGun) {
     if (!activeAlt && activeEncoder) {
       // If *both* the encode and alt buttons are pressed simultaneously, re-calibrate the gyro
@@ -334,6 +373,7 @@ void ProcessButtons() {
     activeAlt = false;
   }
 
+  // Process reload button
   if (pressedReload && activeGun) {
     if (!activeReload) {
 #ifdef DEBUG_BUTTONS
@@ -358,6 +398,7 @@ void ProcessButtons() {
     activeReload = false;
   }
 
+  // Process joystick button
   if (pressedJoystick && activeGun) {
     if (!activeJoystick) {
 #ifdef DEBUG_BUTTONS
