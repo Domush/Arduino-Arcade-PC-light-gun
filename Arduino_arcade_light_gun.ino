@@ -152,13 +152,13 @@ void loop() {
 
 // Handle button presses from all sources
 void ProcessButtons() {
-  boolean pressedGunEnable = !digitalRead(switchGunEnablePin);
-  // boolean pressedScrollToggle = !digitalRead(switchScrollTogglePin);
-  boolean pressedTrigger  = !digitalRead(buttonTriggerPin);
-  boolean pressedAlt      = !digitalRead(buttonAltPin);
-  boolean pressedReload   = !digitalRead(buttonReloadPin);
-  boolean pressedJoystick = !digitalRead(buttonJoystickPin);
-  boolean pressedEncoder  = !digitalRead(buttonEncoderPin);
+  boolean pressedGunEnable    = !digitalRead(switchGunEnablePin);
+  boolean pressedScrollToggle = !digitalRead(switchScrollTogglePin);
+  boolean pressedTrigger      = !digitalRead(buttonTriggerPin);
+  boolean pressedAlt          = !digitalRead(buttonAltPin);
+  boolean pressedReload       = !digitalRead(buttonReloadPin);
+  boolean pressedJoystick     = !digitalRead(buttonJoystickPin);
+  boolean pressedEncoder      = !digitalRead(buttonEncoderPin);
 
   if (pressedGunEnable) {
     if (!activeGun) {
@@ -186,11 +186,10 @@ void ProcessButtons() {
     activeGun = false;
   }
 
-  /* Not implemented yet
   if (pressedScrollToggle) {
     if (!activeScroll) {
 #ifdef DEBUG_BUTTONS
-      DEBUG_PRINTLN("Enabling rotary scrolling");
+      DEBUG_PRINTLN("Rotary scrolling mode");
 #endif
       // Display what's happening
       displayConfig(true, 2);
@@ -202,17 +201,16 @@ void ProcessButtons() {
     }
   } else if (!pressedScrollToggle && activeScroll) {
 #ifdef DEBUG_BUTTONS
-    DEBUG_PRINTLN("Enabling rotary scrolling");
+    DEBUG_PRINTLN("Axis sensitivity adjustment mode");
 #endif
     // Display what's happening
     displayConfig(true, 2);
-    display.setCursor(0, 0);
-    display.println("Axis adjust\n   mode");
+    display.setCursor(20, 0);
+    display.println("Axis\n  mode");
     display.display();
     //  End display
     activeScroll = false;
   }
-  */
 
   if (pressedTrigger && activeGun) {
     if (!activeTrigger) {
@@ -480,7 +478,7 @@ void ProcessEncoder() {
 #endif
       if (activeScroll) {
         // Display what's happening
-        displayConfig(true);
+        displayConfig(true, 2);
         display.println("Scrolling\n   down");
         display.display();
         //  End display
@@ -513,7 +511,7 @@ void ProcessEncoder() {
 #endif
       if (activeScroll) {
         // Display what's happening
-        displayConfig(true);
+        displayConfig(true, 2);
         display.println("Scrolling\n   up");
         display.display();
         //  End display
