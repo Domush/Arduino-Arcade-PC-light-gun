@@ -291,7 +291,7 @@ void ProcessButtons() {
   }
 
   //  Process encoder button
-  if (pressedEncoder) {
+  if (pressedEncoder && activeGun) {
     if (!activeEncoder) {
 #ifdef DEBUG_BUTTONS
       DEBUG_PRINTLN("Encoder button pressed (Hold for aim adjust)");
