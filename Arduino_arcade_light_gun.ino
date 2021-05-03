@@ -180,32 +180,6 @@ void ProcessButtons() {
   boolean pressedJoystick     = !digitalRead(buttonJoystickPin);
   boolean pressedEncoder      = !digitalRead(buttonEncoderPin);
 
-  if (pressedGunEnable) {
-    if (!activeGun) {
-#ifdef DEBUG_BUTTONS
-      DEBUG_PRINTLN("Enabling Gun Controls");
-#endif
-      // Display what's happening
-      displayConfig(true, 2);
-      display.setCursor(15, 0);
-      display.println("Powering\n    up!");
-      display.display();
-      //  End display
-      activeGun = true;
-    }
-  } else if (!pressedGunEnable && activeGun) {
-#ifdef DEBUG_BUTTONS
-    DEBUG_PRINTLN("Disabling Gun Controls");
-#endif
-    // Display what's happening
-    displayConfig(true, 2);
-    display.setCursor(15, 0);
-    display.println("Gun\n disabled :(");
-    display.display();
-    //  End display
-    activeGun = false;
-  }
-
   if (pressedScrollToggle) {
     if (!activeScroll) {
 #ifdef DEBUG_BUTTONS
@@ -230,6 +204,32 @@ void ProcessButtons() {
     display.display();
     //  End display
     activeScroll = false;
+  }
+
+  if (pressedGunEnable) {
+    if (!activeGun) {
+#ifdef DEBUG_BUTTONS
+      DEBUG_PRINTLN("Enabling Gun Controls");
+#endif
+      // Display what's happening
+      displayConfig(true, 2);
+      display.setCursor(15, 0);
+      display.println("Powering\n    up!");
+      display.display();
+      //  End display
+      activeGun = true;
+    }
+  } else if (!pressedGunEnable && activeGun) {
+#ifdef DEBUG_BUTTONS
+    DEBUG_PRINTLN("Disabling Gun Controls");
+#endif
+    // Display what's happening
+    displayConfig(true, 2);
+    display.setCursor(15, 0);
+    display.println("Gun\n disabled :(");
+    display.display();
+    //  End display
+    activeGun = false;
   }
 
   if (pressedTrigger && activeGun) {
