@@ -605,7 +605,7 @@ void ProcessMPU() {
     debugLastUpdate = timestamp;
   }
 #else
-  if (mouseMoveX != 0 || mouseMoveY != 0 && activeGun) {
+  if ((mouseMoveX != 0 || mouseMoveY != 0) && activeGun) {
     Mouse.move(mouseMoveX, mouseMoveY, 0);
   }
   if (mpuValidZ && activeGun) {
