@@ -19,3 +19,8 @@ _autosave-*
 # Exported BOM files
 *.xml
 *.csv
+
+# Website build & dependencies (gh-pages)
+node_modules/
+dist/
+

@@ -1,3 +1,11 @@
+# Arduino Arcade PC Light Gun
+
+[![Website](https://img.shields.io/badge/Website-Interactive%20Guide%20%26%20Wiring-red?style=flat-square)](https://domush.github.io/Arduino-Arcade-PC-light-gun/)
+[![Hardware](https://img.shields.io/badge/Hardware-Arduino%20Pro%20Micro-00979D?style=flat-square&logo=arduino)](https://www.arduino.cc/)
+[![Sensor](https://img.shields.io/badge/IMU-MPU6050%20Gyro%20%2B%20Accel-blue?style=flat-square)](https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/)
+
+🌐 **Live Interactive Website, Wiring Diagrams & Calibration Guide:** [domush.github.io/Arduino-Arcade-PC-light-gun](https://domush.github.io/Arduino-Arcade-PC-light-gun/)
+
 ## Arcade light gun, for the modern PC and retro arcade game emulators
 
 They don't make light guns that work with LCD screens, so I wrote this to emulate the old arcade light guns for using with a modern PC. 
